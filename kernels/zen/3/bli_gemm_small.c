@@ -44,15 +44,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define BLIS_ENABLE_PREFETCH
 #define F_SCRATCH_DIM (BLIS_SMALL_MATRIX_THRES * BLIS_SMALL_MATRIX_THRES)
-static float A_pack[F_SCRATCH_DIM]  __attribute__((aligned(64)));
 #define D_BLIS_SMALL_MATRIX_THRES (BLIS_SMALL_MATRIX_THRES / 2 )
 #define D_BLIS_SMALL_M_RECT_MATRIX_THRES (BLIS_SMALL_M_RECT_MATRIX_THRES / 2)
 #define D_BLIS_SMALL_K_RECT_MATRIX_THRES (BLIS_SMALL_K_RECT_MATRIX_THRES / 2)
 #define D_SCRATCH_DIM (D_BLIS_SMALL_MATRIX_THRES * D_BLIS_SMALL_MATRIX_THRES)
-static double D_A_pack[D_SCRATCH_DIM]  __attribute__((aligned(64)));
 #define BLIS_ATBN_M_THRES 40 // Threshold value of M for/below which small matrix code is called. 
 #define AT_MR 4 // The kernel dimension of the A transpose GEMM kernel.(AT_MR * NR).
-static err_t bli_sgemm_small
+err_t bli_sgemm_small
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -63,7 +61,7 @@ static err_t bli_sgemm_small
        cntl_t* cntl
      );
 
-static err_t bli_dgemm_small
+err_t bli_dgemm_small
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -74,7 +72,7 @@ static err_t bli_dgemm_small
        cntl_t* cntl
      );
 
-static err_t bli_sgemm_small_atbn
+err_t bli_sgemm_small_atbn
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -85,7 +83,7 @@ static err_t bli_sgemm_small_atbn
        cntl_t* cntl
      );
 
-static err_t bli_dgemm_small_atbn
+err_t bli_dgemm_small_atbn
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -161,7 +159,7 @@ err_t bli_gemm_small
 };
 
 
-static err_t bli_sgemm_small
+err_t bli_sgemm_small
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -202,6 +200,8 @@ static err_t bli_sgemm_small
         __m256 ymm8, ymm9, ymm10, ymm11;
         __m256 ymm12, ymm13, ymm14, ymm15;
         __m256 ymm0, ymm1, ymm2, ymm3;
+
+	float A_pack[F_SCRATCH_DIM]  __attribute__((aligned(64)));
 
         int n_remainder; // If the N is non multiple of 3.(N%3)
         int m_remainder; // If the M is non multiple of 32.(M%32)
@@ -1563,7 +1563,7 @@ static err_t bli_sgemm_small
 
 };
 
-static err_t bli_dgemm_small
+err_t bli_dgemm_small
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -1605,6 +1605,8 @@ static err_t bli_dgemm_small
         __m256d ymm8, ymm9, ymm10, ymm11;
         __m256d ymm12, ymm13, ymm14, ymm15;
         __m256d ymm0, ymm1, ymm2, ymm3;
+
+	double D_A_pack[D_SCRATCH_DIM]  __attribute__((aligned(64)));
 
         int n_remainder; // If the N is non multiple of 3.(N%3)
         int m_remainder; // If the M is non multiple of 16.(M%16)
@@ -2967,7 +2969,7 @@ static err_t bli_dgemm_small
 
 };
 
-static err_t bli_sgemm_small_atbn
+err_t bli_sgemm_small_atbn
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -3359,7 +3361,7 @@ static err_t bli_sgemm_small_atbn
         return BLIS_NONCONFORMAL_DIMENSIONS;
 }
 
-static err_t bli_dgemm_small_atbn
+err_t bli_dgemm_small_atbn
      (
        obj_t*  alpha,
        obj_t*  a,
