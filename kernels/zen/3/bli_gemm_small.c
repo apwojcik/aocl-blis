@@ -201,7 +201,7 @@ err_t bli_sgemm_small
         __m256 ymm12, ymm13, ymm14, ymm15;
         __m256 ymm0, ymm1, ymm2, ymm3;
 
-	float A_pack[F_SCRATCH_DIM]  __attribute__((aligned(64)));
+	float A_pack[MR*K]  __attribute__((aligned(64)));
 
         int n_remainder; // If the N is non multiple of 3.(N%3)
         int m_remainder; // If the M is non multiple of 32.(M%32)
@@ -232,7 +232,7 @@ err_t bli_sgemm_small
             tb_inc_row = ldb;
         }
 
-        if ((N <= 3) || ((MR * K) > F_SCRATCH_DIM))
+        if ((N <= 3))
         {
             required_packing_A = 0;
         }
@@ -1606,7 +1606,7 @@ err_t bli_dgemm_small
         __m256d ymm12, ymm13, ymm14, ymm15;
         __m256d ymm0, ymm1, ymm2, ymm3;
 
-	double D_A_pack[D_SCRATCH_DIM]  __attribute__((aligned(64)));
+	double D_A_pack[D_MR*K]  __attribute__((aligned(64)));
 
         int n_remainder; // If the N is non multiple of 3.(N%3)
         int m_remainder; // If the M is non multiple of 16.(M%16)
@@ -1637,7 +1637,7 @@ err_t bli_dgemm_small
             tb_inc_row = ldb;
         }
 
-        if ((N <= 3) || ((D_MR * K) > D_SCRATCH_DIM))
+        if ((N <= 3))
         {
             required_packing_A = 0;
         }
