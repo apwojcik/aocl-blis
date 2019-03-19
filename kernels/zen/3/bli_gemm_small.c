@@ -1958,7 +1958,7 @@ err_t bli_dgemm_small
                 //pointer math to point to proper memory
                 tC = C + ldc * col_idx + row_idx;
                 tB = B + tb_inc_col * col_idx;
-                tA = A + row_idx;
+                tA = tA_packed + row_idx_packed;
 
                 // clear scratch registers.
                 ymm8 = _mm256_setzero_pd();
@@ -1996,7 +1996,7 @@ err_t bli_dgemm_small
                     ymm11 = _mm256_fmadd_pd(ymm0, ymm3, ymm11);
                     ymm15 = _mm256_fmadd_pd(ymm1, ymm3, ymm15);
 
-                    tA += lda;
+                    tA += lda_packed;
 
                 }
                 // alpha, beta multiplication.
@@ -2051,7 +2051,7 @@ err_t bli_dgemm_small
                 //pointer math to point to proper memory
                 tC = C + ldc * col_idx + row_idx;
                 tB = B + tb_inc_col * col_idx;
-                tA = A + row_idx;
+                tA = tA_packed + row_idx_packed;
 
                 // clear scratch registers.
                 ymm12 = _mm256_setzero_pd();
@@ -2080,7 +2080,7 @@ err_t bli_dgemm_small
                     ymm3 = _mm256_loadu_pd(tA + 12);
                     ymm15 = _mm256_fmadd_pd(ymm0, ymm3, ymm15);
 
-                    tA += lda;
+                    tA += lda_packed;
 
                 }
                 // alpha, beta multiplication.
