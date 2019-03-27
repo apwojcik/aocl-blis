@@ -36,7 +36,7 @@
 #include "blis.h"
 
 
-//#define PRINT
+#define PRINT
 
 int main( int argc, char** argv )
 {
@@ -45,7 +45,7 @@ int main( int argc, char** argv )
 	obj_t alpha;
 	dim_t m, n;
 	dim_t p;
-	dim_t p_begin, p_end, p_inc;
+	dim_t  p_begin, p_end, p_inc;
 	int   m_input, n_input;
 	num_t dt;
 	int   r, n_repeats;
@@ -57,7 +57,7 @@ int main( int argc, char** argv )
 	f77_char f77_uploa;
 	f77_char f77_transa;
 	f77_char f77_diaga;
-
+	int i,j;
 	double dtime;
 	double dtime_save;
 	double gflops;
@@ -66,26 +66,26 @@ int main( int argc, char** argv )
 
 	//bli_error_checking_level_set( BLIS_NO_ERROR_CHECKING );
 
-	n_repeats = 3;
+	n_repeats = 1;
 
 #ifndef PRINT
-	p_begin = 200;
-	p_end   = 2000;
-	p_inc   = 200;
-
-	m_input = -1;
-	n_input = -1;
-#else
 	p_begin = 16;
-	p_end   = 16;
+	p_end   = 20;
 	p_inc   = 1;
 
 	m_input = 4;
-	n_input = 4;
+	n_input = 3;
+#else
+	p_begin = 4;
+	p_end   = 64;
+	p_inc   = 4;
+
+	m_input = 9;
+	n_input = 9;
 #endif
 
 #if 1
-	//dt = BLIS_FLOAT;
+//	dt = BLIS_FLOAT;
 	dt = BLIS_DOUBLE;
 #else
 	//dt = BLIS_SCOMPLEX;
@@ -93,7 +93,7 @@ int main( int argc, char** argv )
 #endif
 
 	side = BLIS_LEFT;
-	//side = BLIS_RIGHT;
+//	side = BLIS_RIGHT;
 
 	uploa = BLIS_LOWER;
 	//uploa = BLIS_UPPER;
@@ -130,20 +130,59 @@ int main( int argc, char** argv )
 		bli_obj_create( dt, 1, 1, 0, 0, &alpha );
 
 		if ( bli_is_left( side ) )
-			bli_obj_create( dt, m, m, 0, 0, &a );
+			bli_obj_create( dt, m, m, 1, m, &a );
 		else
 			bli_obj_create( dt, n, n, 0, 0, &a );
-		bli_obj_create( dt, m, n, 0, 0, &c );
-		bli_obj_create( dt, m, n, 0, 0, &c_save );
+		bli_obj_create( dt, m, n, 1, m, &c );
+		bli_obj_create( dt, m, n, 1, m, &c_save );
 
-		bli_randm( &a );
-		bli_randm( &c );
+//		bli_randm( &a );
+//		bli_randm( &c );
+
+		// Randomize A and zero the unstored triangle to ensure the
+		// implementation reads only from the stored region.
+//		bli_randm( &a );
+//		bli_mktrim( &a );
+
+               FILE *file;
+  	       file=fopen("matrix.txt", "r");
+	double *A = (&a)->buffer;
+	double *C = (&c)->buffer;
+	int lda = bli_obj_col_stride(&a);
+	int ldc = bli_obj_col_stride(&c);
+	       for(i = 0; i < m; i++)
+  		{
+      		for(j = 0; j < m; j++)
+      		{
+  		//Use lf format specifier, %c is for character
+       		if (!fscanf(file, "%lf", &A[i+j*lda]))
+           	break;
+      // mat[i][j] -= '0';
+       		//printf("%lf\n",mat[i][j]); //Use lf format specifier, \n is for new line
+      		}
+
+  		}
+		for(i = 0; i < m; i++)
+  		{
+      		for(j = 0; j < n; j++)
+      		{
+  		//Use lf format specifier, %c is for character
+       		if (!fscanf(file, "%lf", &C[i+j*ldc]))
+           	break;
+      // mat[i][j] -= '0';
+       		//printf("%lf\n",mat[i][j]); //Use lf format specifier, \n is for new line
+      		}
+
+  		}
+
+		fclose(file);
 
 		bli_obj_set_struc( BLIS_TRIANGULAR, &a );
 		bli_obj_set_uplo( uploa, &a );
 		bli_obj_set_conjtrans( transa, &a );
 		bli_obj_set_diag( diaga, &a );
 
+<<<<<<< HEAD
 		// Randomize A, make it densely Hermitian, and zero the unstored
 		// triangle to ensure the implementation reads only from the stored
 		// region.
@@ -151,11 +190,17 @@ int main( int argc, char** argv )
 		bli_mkherm( &a );
 		bli_mktrim( &a );
 
+=======
+
+		// Load the diagonal of A to make it more likely to be invertible.
+//		bli_shiftd( &BLIS_TWO, &a );
+
+>>>>>>> 4e3f9c73... test trsm code to take input matrices from a file
 		bli_setsc(  (2.0/1.0), 1.0, &alpha );
 
 
 		bli_copym( &c, &c_save );
-	
+
 		dtime_save = DBL_MAX;
 
 		for ( r = 0; r < n_repeats; ++r )
@@ -167,9 +212,9 @@ int main( int argc, char** argv )
 
 
 #ifdef PRINT
-			bli_invertd( &a );
+			//bli_invertd( &a );
 			bli_printm( "a", &a, "%4.1f", "" );
-			bli_invertd( &a );
+			//bli_invertd( &a );
 			bli_printm( "c", &c, "%4.1f", "" );
 #endif
 
@@ -264,7 +309,7 @@ int main( int argc, char** argv )
 #endif
 
 #ifdef PRINT
-			bli_printm( "c after", &c, "%9.5f", "" );
+			bli_printm( "c after", &c, "%4.1f", "" );
 			exit(1);
 #endif
 
