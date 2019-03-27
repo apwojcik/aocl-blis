@@ -41,11 +41,27 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define OPT_CACHE_BLOCKING_L1 1 //Perform trsm block-wise in blocks of GEMM_BLK_V1 instead of all columns of B together.
 #define REARRANGE_SHFL 0        //Rearrange operations using blend or shuffle
 #define BLI_AlXB_M_SP    16
-#define BLI_AlXB_M_DP    16
+//#define BLI_AlXB_M_DP    16
 #define BLI_XAltB_N_SP   128
 #define BLI_XAltB_N_DP   64
 #define BLI_AutXB_M_SP   64
 #define BLI_AutXB_N_SP   128
+
+static err_t trsm_small_AlXB (
+                  obj_t *A,
+                  obj_t *B,
+		  obj_t *alpha
+                );
+
+static void blis_dtrsm_microkernel_corner(double *ptr_l,
+                     double *ptr_b,
+                     int m,
+                     int n,
+                     int rs_l,
+                     int rs_b,
+                     int cs_l,
+                     int cs_b
+                    );
 
 static void (*fp_blis_strsm_microkernel)( float *ptr_l,
                                     float *ptr_b,
@@ -427,8 +443,9 @@ err_t bli_trsm_small
             else
             {
                 //AX = B;  A is lower triangular; No transpose; single precision
-                return bli_strsm_small_AlXB(side, alpha, a, b, cntx, cntl);
-            }
+               // return bli_strsm_small_AlXB(side, alpha, a, b, cntx, cntl);
+          	return trsm_small_AlXB(a,b,alpha);
+	    }
         }
     }
     }
@@ -471,20 +488,33 @@ err_t bli_trsm_small
 };
 
 
-static void trsm_small_AlXB (
-                  float *A,
-                  float *B,
-                  int M,
+static err_t trsm_small_AlXB (
+                  obj_t *a,
+                  obj_t *b,
+		  obj_t *alpha
+/*                  int M,
                   int N,
                   int lda,
                   int ldb
-                )
+*/                )
 {
+
+  int M = bli_obj_length(b);
+  int N = bli_obj_width(b);
+  int lda = bli_obj_col_stride(a);
+  int ldb = bli_obj_col_stride(b);
+  float *A = a->buffer;
+  float *B = b->buffer;
+  float alphaVal = *((float *)alpha->buffer);
   int i;
   int j;
   int k;
 
   // Need to incorporate alpha
+
+  for(k = 0; k < M; k++)
+    for(j = 0; j < N; j++)
+	B[k+k*lda] *=alphaVal; 
 
   for (k = 0; k < M; k++)
     {
@@ -500,7 +530,7 @@ static void trsm_small_AlXB (
         }
     }
     }// k -loop
-
+ return BLIS_SUCCESS;
 }// end of function
 
 
@@ -549,6 +579,7 @@ static err_t bli_dtrsm_small_AlXB (
 {
   obj_t alpha, beta; // gemm parameters
   obj_t Ga, Gb, Gc;  // for GEMM
+  obj_t Ga_remainder, Gb_remainder, Gc_remainder;  // for GEMM
   int m = bli_obj_length(b); // number of rows of matrix B
   int n = bli_obj_width(b);  // number of columns of matrix B
 
@@ -566,12 +597,13 @@ static err_t bli_dtrsm_small_AlXB (
   double alphaVal;
   double *L =  a->buffer;
   double *B =  b->buffer;
-
+/*
   if (m != BLI_AlXB_M_DP || (n&3) != 0)
   {
         return BLIS_NOT_YET_IMPLEMENTED;
   }
-
+*/
+  int m_remainder = (m%4);
   alphaVal = *((double *)AlphaObj->buffer);
 
   /* Small _GEMM preparation code */
@@ -589,6 +621,20 @@ static err_t bli_dtrsm_small_AlXB (
   bli_obj_set_conjtrans( BLIS_NO_TRANSPOSE, &Ga );
   bli_obj_set_conjtrans( BLIS_NO_TRANSPOSE, &Gb );
   bli_obj_set_conjtrans( BLIS_NO_TRANSPOSE, &Gc );
+
+  if(m_remainder != 0)
+  {
+
+    bli_obj_create_with_attached_buffer( BLIS_DOUBLE, m_remainder, blk_size, a->buffer, rsa, lda, &Ga_remainder);
+    bli_obj_create_with_attached_buffer( BLIS_DOUBLE, blk_size, n, b->buffer, rsb, ldb, &Gb_remainder);
+    bli_obj_create_with_attached_buffer( BLIS_DOUBLE, m_remainder, n, b->buffer, rsb, ldb, &Gc_remainder);
+
+    bli_obj_set_conjtrans( BLIS_NO_TRANSPOSE, &Ga_remainder );
+    bli_obj_set_conjtrans( BLIS_NO_TRANSPOSE, &Gb_remainder );
+    bli_obj_set_conjtrans( BLIS_NO_TRANSPOSE, &Gc_remainder );
+
+    Gb_remainder.buffer = (void*)(B + i);
+  }
 
   //first block of trsm
   Gb.buffer = (void*)(B + i);
@@ -621,33 +667,52 @@ static err_t bli_dtrsm_small_AlXB (
           }
   }
 
-
+bli_printm("b after first block solve",b,"%4.1f","");
 //gemm update
-  for (j = i + blk_size; j < m; j += blk_size) // for rows upto multiple of BLOCK_HEIGHT
+  for (j = i + blk_size; j+3 < m; j += blk_size) // for rows upto multiple of BLOCK_HEIGHT
   {
       Ga.buffer = (void*)(L + j + i*lda);
       Gc.buffer = (void*)(B + j);
       bli_gemm_small(&alpha, &Ga, &Gb, &beta, &Gc, cntx, cntl ); // Gc = beta*Gc + alpha*Ga *Gb
   }
+if(m_remainder != 0)
+  {
+      Ga_remainder.buffer = (void*)(L + j + i*lda);
+      Gc_remainder.buffer = (void*)(B + j);
+      bli_gemm_small(&alpha, &Ga_remainder, &Gb_remainder, &beta, &Gc_remainder, cntx, cntl ); // Gc = beta*Gc + alpha*Ga *Gb
+  }
+bli_printm("b after gemm update of first block",b,"%4.1f","");
   bli_setsc( (1.0), 0.0, &beta );
 
   //trsm of remaining blocks
-  for (i = blk_size; i < m; i += blk_size)
+  for (i = blk_size; (i+blk_size-1) < m; i += blk_size)
   {
-          Gb.buffer = (void*)(B + i);
+          Gb.buffer = Gb_remainder.buffer = (void*)(B + i);
 
           fp_blis_dtrsm_microkernel((L + i * lda + i), (B + i), m, n, rsa, rsb, lda, ldb);
 
-
-          for (j = i + blk_size; j < m; j += blk_size) // for rows upto multiple of BLOCK_HEIGHT
+	bli_printm("b after second block solve",b,"%4.1f","");
+          for (j = i + blk_size; (j+3) < m; j += blk_size) // for rows upto multiple of BLOCK_HEIGHT
           {
               Ga.buffer = (void*)(L + j + i*lda);
               Gc.buffer = (void*)(B + j);
 
               bli_gemm_small(&alpha, &Ga, &Gb, &beta, &Gc, cntx, cntl ); // Gc = beta*Gc + alpha*Ga *Gb
           }
+	  if(m_remainder != 0)
+	  {
+              Ga_remainder.buffer = (void*)(L + j + i*lda);
+              Gc_remainder.buffer = (void*)(B + j);
 
+              bli_gemm_small(&alpha, &Ga_remainder, &Gb_remainder, &beta, &Gc_remainder, cntx, cntl ); // Gc = beta*Gc + alpha*Ga *Gb
+	  }
+	bli_printm("b after second block gemm update",b,"%4.1f","");
   } // End of for loop - i
+
+  if(m_remainder)
+  {
+    blis_dtrsm_microkernel_corner((L + i * lda + i), (B + i), m, n, rsa, rsb, lda, ldb);
+  }
 
   return BLIS_SUCCESS;
 
@@ -1008,262 +1073,8 @@ static err_t bli_strsm_small_AutXB(
 * AX=B A=LOWER TRIANGULAR, NO TRANSPOSE, NON-UNITDIAGONAL
 * ALPHA != 1;
 */
-static void blis_dtrsm_microkernel_alpha(double *ptr_l,
-                     double *ptr_b,
-                     int numRows_lb,
-                     int numCols_b,
-                     int rs_l,
-                     int rs_b,
-                     int cs_l,
-                     int cs_b,
-                     double alphaVal
-                    )
-{
-    double ones = 1.0;
-    int j;
-    int cs_b_offset[2];
-    double *ptr_b_dup;
 
-    __m256d mat_b_col[4];
-    __m256d mat_b_rearr[4];
-    __m256d mat_a_cols[4];
-    __m256d mat_a_cols_rearr[10];
-    __m256d mat_a_diag_inv[4];
-    __m256d reciprocal_diags;
-    __m256d alphaReg;
 
-    cs_b_offset[0] = (cs_b << 1);
-    cs_b_offset[1] = cs_b + cs_b_offset[0];
-
-    reciprocal_diags = _mm256_broadcast_sd((double const *)&ones);
-    alphaReg = _mm256_broadcast_sd((double const *)&alphaVal);
-
-    //read first set of 4x4 block of B into registers
-    mat_b_col[0] = _mm256_loadu_pd((double const *)ptr_b);
-    mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + (cs_b)));
-    //_mm_prefetch((char*)(ptr_l + cs_l), _MM_HINT_T0);
-    mat_b_col[2] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0]));
-    //_mm_prefetch((char*)(ptr_l + row2), _MM_HINT_T0);
-    mat_b_col[3] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1]));
-
-    //1st col
-    mat_a_cols_rearr[0] = _mm256_broadcast_sd((double const *)(ptr_l+0));
-    mat_a_cols_rearr[1] = _mm256_broadcast_sd((double const *)(ptr_l+1));
-    mat_a_cols_rearr[3] = _mm256_broadcast_sd((double const *)(ptr_l+2));
-    mat_a_cols_rearr[6] = _mm256_broadcast_sd((double const *)(ptr_l+3));
-
-    //2nd col
-    ptr_l += cs_l;
-    mat_a_cols_rearr[2] = _mm256_broadcast_sd((double const *)(ptr_l + 1));
-    mat_a_cols_rearr[4] = _mm256_broadcast_sd((double const *)(ptr_l + 2));
-    mat_a_cols_rearr[7] = _mm256_broadcast_sd((double const *)(ptr_l + 3));
-
-    //3rd col
-    ptr_l += cs_l;
-    mat_a_cols_rearr[5] = _mm256_broadcast_sd((double const *)(ptr_l + 2));
-    mat_a_cols_rearr[8] = _mm256_broadcast_sd((double const *)(ptr_l + 3));
-
-    //4th col
-    ptr_l += cs_l;
-    mat_a_cols_rearr[9] = _mm256_broadcast_sd((double const *)(ptr_l + 3));
-
-    numCols_b -= 4; // blk_width = 4
-
-    //compute reciprocals of L(i,i) and broadcast in registers
-    mat_a_diag_inv[0] = _mm256_unpacklo_pd(mat_a_cols_rearr[0], mat_a_cols_rearr[2]);
-    mat_a_diag_inv[1] = _mm256_unpacklo_pd(mat_a_cols_rearr[5], mat_a_cols_rearr[9]);
-
-    mat_a_diag_inv[0] = _mm256_blend_pd(mat_a_diag_inv[0], mat_a_diag_inv[1], 0x0C);
-    reciprocal_diags = _mm256_div_pd(reciprocal_diags, mat_a_diag_inv[0]);
-
-    for(j = 0;j < numCols_b; j += 4)
-    {
-        ptr_b_dup = ptr_b;
-        /*Shuffle to rearrange/transpose 8x4 block of B into contiguous row-wise registers*/
-
-        ////unpacklow////
-        mat_b_rearr[1] = _mm256_unpacklo_pd(mat_b_col[0], mat_b_col[1]);
-        mat_b_rearr[3] = _mm256_unpacklo_pd(mat_b_col[2], mat_b_col[3]);
-
-        //rearrange low elements
-        mat_b_rearr[0] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x20);
-        mat_b_rearr[2] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x31);
-
-        mat_b_rearr[0] = _mm256_mul_pd(mat_b_rearr[0], alphaReg);
-        mat_b_rearr[2] = _mm256_mul_pd(mat_b_rearr[2], alphaReg);
-
-        ////unpackhigh////
-        mat_b_col[0] = _mm256_unpackhi_pd(mat_b_col[0], mat_b_col[1]);
-        mat_b_col[1] = _mm256_unpackhi_pd(mat_b_col[2], mat_b_col[3]);
-
-        //rearrange high elements
-        mat_b_rearr[1] = _mm256_permute2f128_pd(mat_b_col[0],mat_b_col[1],0x20);
-        mat_b_rearr[3] = _mm256_permute2f128_pd(mat_b_col[0],mat_b_col[1],0x31);
-
-        mat_b_rearr[1] = _mm256_mul_pd(mat_b_rearr[1], alphaReg);
-        mat_b_rearr[3] = _mm256_mul_pd(mat_b_rearr[3], alphaReg);
-        //extract a00
-        mat_a_diag_inv[0] = _mm256_permute_pd(reciprocal_diags, 0x00);
-        mat_a_diag_inv[0] = _mm256_permute2f128_pd(mat_a_diag_inv[0], mat_a_diag_inv[0], 0x00);
-
-        //(Row0): Perform mul operation of reciprocal of L(0,0) element with 1st row elements of B
-        mat_b_rearr[0] = _mm256_mul_pd(mat_b_rearr[0], mat_a_diag_inv[0]);
-
-        //extract diag a11 from a
-        mat_a_diag_inv[1] = _mm256_permute_pd(reciprocal_diags, 0x03);
-        mat_a_diag_inv[1] = _mm256_permute2f128_pd(mat_a_diag_inv[1], mat_a_diag_inv[1], 0x00);
-
-        //(Row1): FMA operations of b1 with elements of indices from (1, 0) uptill (3, 0)
-        mat_b_rearr[1] = _mm256_fnmadd_pd(mat_a_cols_rearr[1], mat_b_rearr[0], mat_b_rearr[1]);//d = c - (a*b)
-        mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[3], mat_b_rearr[0], mat_b_rearr[2]);//d = c - (a*b)
-        mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[6], mat_b_rearr[0], mat_b_rearr[3]);//d = c - (a*b)
-
-        //Perform mul operation of reciprocal of L(1,1) element with 2nd row elements of B
-        mat_b_rearr[1] = _mm256_mul_pd(mat_b_rearr[1], mat_a_diag_inv[1]);
-
-        //extract diag a22 from a
-        mat_a_diag_inv[2] = _mm256_permute_pd(reciprocal_diags, 0x00);
-        mat_a_diag_inv[2] = _mm256_permute2f128_pd(mat_a_diag_inv[2], mat_a_diag_inv[2], 0x11);
-
-        //(Row2): FMA operations of b2 with elements of indices from (2, 0) uptill (7, 0)
-        mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[4], mat_b_rearr[1], mat_b_rearr[2]);//d = c - (a*b)
-        mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[7], mat_b_rearr[1], mat_b_rearr[3]);//d = c - (a*b)
-
-        //Perform mul operation of reciprocal of L(2, 2) element with 3rd row elements of B
-        mat_b_rearr[2] = _mm256_mul_pd(mat_b_rearr[2], mat_a_diag_inv[2]);
-
-        //extract diag a33 from a
-        mat_a_diag_inv[3] = _mm256_permute_pd(reciprocal_diags, 0x0C);
-        mat_a_diag_inv[3] = _mm256_permute2f128_pd(mat_a_diag_inv[3], mat_a_diag_inv[3], 0x11);
-
-        //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
-        mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[8], mat_b_rearr[2], mat_b_rearr[3]);//d = c - (a*b)
-
-        //Perform mul operation of reciprocal of L(3, 3) element with 4rth row elements of B
-        mat_b_rearr[3] = _mm256_mul_pd(mat_b_rearr[3], mat_a_diag_inv[3]);
-
-        //--> Transpose and store results of columns of B block <--//
-        ////unpacklow////
-        mat_a_cols[1] = _mm256_unpacklo_pd(mat_b_rearr[0], mat_b_rearr[1]);
-        mat_a_cols[3] = _mm256_unpacklo_pd(mat_b_rearr[2], mat_b_rearr[3]);
-
-        //rearrange low elements
-        mat_a_cols[0] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x20);
-        mat_a_cols[2] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x31);
-
-         ////unpackhigh////
-        mat_b_rearr[0] = _mm256_unpackhi_pd(mat_b_rearr[0], mat_b_rearr[1]);
-
-        mat_b_rearr[1] = _mm256_unpackhi_pd(mat_b_rearr[2], mat_b_rearr[3]);
-
-        //rearrange high elements
-        mat_a_cols[1] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x20);
-        mat_a_cols[3] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x31);
-
-        //Read next set of B columns
-        ptr_b += (cs_b+cs_b_offset[1]);
-        mat_b_col[0] = _mm256_loadu_pd((double const *)ptr_b);
-        mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + (cs_b)));
-        mat_b_col[2] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0]));
-        mat_b_col[3] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1]));
-
-        //Store the computed B columns
-        _mm256_storeu_pd((double *)ptr_b_dup, mat_a_cols[0]);
-        _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_a_cols[1]);
-        _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_a_cols[2]);
-        _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_a_cols[3]);
-
-    }
-    //Last block trsm processing
-
-    ptr_b_dup = ptr_b;
-    /*Shuffle to rearrange/transpose 8x4 block of B into contiguous row-wise registers*/
-
-    ////unpacklow////
-    mat_b_rearr[1] = _mm256_unpacklo_pd(mat_b_col[0], mat_b_col[1]);
-    mat_b_rearr[3] = _mm256_unpacklo_pd(mat_b_col[2], mat_b_col[3]);
-
-    //rearrange low elements
-    mat_b_rearr[0] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x20);
-    mat_b_rearr[2] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x31);
-
-    mat_b_rearr[0] = _mm256_mul_pd(mat_b_rearr[0], alphaReg);
-    mat_b_rearr[2] = _mm256_mul_pd(mat_b_rearr[2], alphaReg);
-
-    ////unpackhigh////
-    mat_b_col[0] = _mm256_unpackhi_pd(mat_b_col[0], mat_b_col[1]);
-    mat_b_col[1] = _mm256_unpackhi_pd(mat_b_col[2], mat_b_col[3]);
-
-    //rearrange high elements
-    mat_b_rearr[1] = _mm256_permute2f128_pd(mat_b_col[0],mat_b_col[1],0x20);
-    mat_b_rearr[3] = _mm256_permute2f128_pd(mat_b_col[0],mat_b_col[1],0x31);
-
-    mat_b_rearr[1] = _mm256_mul_pd(mat_b_rearr[1], alphaReg);
-    mat_b_rearr[3] = _mm256_mul_pd(mat_b_rearr[3], alphaReg);
-    //extract a00
-    mat_a_diag_inv[0] = _mm256_permute_pd(reciprocal_diags, 0x00);
-    mat_a_diag_inv[0] = _mm256_permute2f128_pd(mat_a_diag_inv[0], mat_a_diag_inv[0], 0x00);
-
-    //(Row0): Perform mul operation of reciprocal of L(0,0) element with 1st row elements of B
-    mat_b_rearr[0] = _mm256_mul_pd(mat_b_rearr[0], mat_a_diag_inv[0]);
-
-    //extract diag a11 from a
-    mat_a_diag_inv[1] = _mm256_permute_pd(reciprocal_diags, 0x03);
-    mat_a_diag_inv[1] = _mm256_permute2f128_pd(mat_a_diag_inv[1], mat_a_diag_inv[1], 0x00);
-
-    //(Row1): FMA operations of b1 with elements of indices from (1, 0) uptill (3, 0)
-    mat_b_rearr[1] = _mm256_fnmadd_pd(mat_a_cols_rearr[1], mat_b_rearr[0], mat_b_rearr[1]);//d = c - (a*b)
-    mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[3], mat_b_rearr[0], mat_b_rearr[2]);//d = c - (a*b)
-    mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[6], mat_b_rearr[0], mat_b_rearr[3]);//d = c - (a*b)
-
-    //Perform mul operation of reciprocal of L(1,1) element with 2nd row elements of B
-    mat_b_rearr[1] = _mm256_mul_pd(mat_b_rearr[1], mat_a_diag_inv[1]);
-
-    //extract diag a22 from a
-    mat_a_diag_inv[2] = _mm256_permute_pd(reciprocal_diags, 0x00);
-    mat_a_diag_inv[2] = _mm256_permute2f128_pd(mat_a_diag_inv[2], mat_a_diag_inv[2], 0x11);
-
-    //(Row2): FMA operations of b2 with elements of indices from (2, 0) uptill (7, 0)
-    mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[4], mat_b_rearr[1], mat_b_rearr[2]);//d = c - (a*b)
-    mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[7], mat_b_rearr[1], mat_b_rearr[3]);//d = c - (a*b)
-
-    //Perform mul operation of reciprocal of L(2, 2) element with 3rd row elements of B
-    mat_b_rearr[2] = _mm256_mul_pd(mat_b_rearr[2], mat_a_diag_inv[2]);
-
-    //extract diag a33 from a
-    mat_a_diag_inv[3] = _mm256_permute_pd(reciprocal_diags, 0x0C);
-    mat_a_diag_inv[3] = _mm256_permute2f128_pd(mat_a_diag_inv[3], mat_a_diag_inv[3], 0x11);
-
-    //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
-    mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[8], mat_b_rearr[2], mat_b_rearr[3]);//d = c - (a*b)
-
-    //Perform mul operation of reciprocal of L(3, 3) element with 4rth row elements of B
-    mat_b_rearr[3] = _mm256_mul_pd(mat_b_rearr[3], mat_a_diag_inv[3]);
-
-    //--> Transpose and store results of columns of B block <--//
-    ////unpacklow////
-    mat_a_cols[1] = _mm256_unpacklo_pd(mat_b_rearr[0], mat_b_rearr[1]);
-    mat_a_cols[3] = _mm256_unpacklo_pd(mat_b_rearr[2], mat_b_rearr[3]);
-
-    //rearrange low elements
-    mat_a_cols[0] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x20);
-    mat_a_cols[2] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x31);
-
-    ////unpackhigh////
-    mat_b_rearr[0] = _mm256_unpackhi_pd(mat_b_rearr[0], mat_b_rearr[1]);
-    mat_b_rearr[1] = _mm256_unpackhi_pd(mat_b_rearr[2], mat_b_rearr[3]);
-
-    //rearrange high elements
-    mat_a_cols[1] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x20);
-    mat_a_cols[3] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x31);
-
-     //Store the computed B columns
-    _mm256_storeu_pd((double *)ptr_b_dup, mat_a_cols[0]);
-    _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_a_cols[1]);
-    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_a_cols[2]);
-    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_a_cols[3]);
-
-}
 /*
 *AX=B A=LOWER TRIANGULAR, NO TRANSPOSE, UNITDIAGONAL
 *ALPHA != 1;
@@ -1458,257 +1269,6 @@ static void blis_dtrsm_microkernel_alpha_unitDiag(double *ptr_l,
     _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_a_cols[2]);
     _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_a_cols[3]);
 
-}
-/*
-*AX = B A= LOWERTRIANGULAR, NO TRANSPOSE, NON-UNITDIAGONAL
-*ALPHA = 1
-*/
-static void blis_dtrsm_microkernel(double *ptr_l,
-                   double *ptr_b,
-                   int numRows_lb,
-                   int numCols_b,
-                   int rs_l,
-                   int rs_b,
-                   int cs_l,
-                   int cs_b
-                  )
-{
-    double ones = 1.0;
-    int j;
-    int cs_b_offset[2];
-    double *ptr_b_dup;
-
-    __m256d mat_b_col[4];
-    __m256d mat_b_rearr[4];
-    __m256d mat_a_cols[4];
-    __m256d mat_a_cols_rearr[10];
-    __m256d mat_a_diag_inv[4];
-    __m256d reciprocal_diags;
-
-    cs_b_offset[0] = (cs_b << 1);
-    cs_b_offset[1] = cs_b + cs_b_offset[0];
-
-    reciprocal_diags = _mm256_broadcast_sd((double const *)&ones);
-
-    // ---> considering that the matrix size is multiple of 16 rows and 8 cols <--- //
-
-    //read first set of 16x8 block of B into registers, where 16 is the blk_height and 8 is the blk_width for B
-    mat_b_col[0] = _mm256_loadu_pd((double const *)ptr_b);
-    //_mm_prefetch((char*)(ptr_l + 0), _MM_HINT_T0);
-    //row2 = (cs_l << 1);
-    //row4 = (cs_l << 2);
-    mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + (cs_b)));
-    //_mm_prefetch((char*)(ptr_l + cs_l), _MM_HINT_T0);
-    mat_b_col[2] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0]));
-    //_mm_prefetch((char*)(ptr_l + row2), _MM_HINT_T0);
-    mat_b_col[3] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1]));
-
-     //1st col
-    mat_a_cols_rearr[0] = _mm256_broadcast_sd((double const *)(ptr_l+0));
-    mat_a_cols_rearr[1] = _mm256_broadcast_sd((double const *)(ptr_l+1));
-    mat_a_cols_rearr[3] = _mm256_broadcast_sd((double const *)(ptr_l+2));
-    mat_a_cols_rearr[6] = _mm256_broadcast_sd((double const *)(ptr_l+3));
-
-    //2nd col
-    ptr_l += cs_l;
-    mat_a_cols_rearr[2] = _mm256_broadcast_sd((double const *)(ptr_l + 1));
-    mat_a_cols_rearr[4] = _mm256_broadcast_sd((double const *)(ptr_l + 2));
-    mat_a_cols_rearr[7] = _mm256_broadcast_sd((double const *)(ptr_l + 3));
-
-    //3rd col
-    ptr_l += cs_l;
-    mat_a_cols_rearr[5] = _mm256_broadcast_sd((double const *)(ptr_l + 2));
-    mat_a_cols_rearr[8] = _mm256_broadcast_sd((double const *)(ptr_l + 3));
-
-    //4th col
-    ptr_l += cs_l;
-    mat_a_cols_rearr[9] = _mm256_broadcast_sd((double const *)(ptr_l + 3));
-
-     numCols_b -= 4; // blk_width = 4
-
-    //compute reciprocals of L(i,i) and broadcast in registers
-    mat_a_diag_inv[0] = _mm256_unpacklo_pd(mat_a_cols_rearr[0], mat_a_cols_rearr[2]);
-    mat_a_diag_inv[1] = _mm256_unpacklo_pd(mat_a_cols_rearr[5], mat_a_cols_rearr[9]);
-
-    mat_a_diag_inv[0] = _mm256_blend_pd(mat_a_diag_inv[0], mat_a_diag_inv[1], 0x0C);
-    reciprocal_diags = _mm256_div_pd(reciprocal_diags, mat_a_diag_inv[0]);
-
-    for(j = 0;j < numCols_b; j += 4)
-    {
-        ptr_b_dup = ptr_b;
-        /*Shuffle to rearrange/transpose 8x4 block of B into contiguous row-wise registers*/
-
-        ////unpacklow////
-        mat_b_rearr[1] = _mm256_unpacklo_pd(mat_b_col[0], mat_b_col[1]);
-        mat_b_rearr[3] = _mm256_unpacklo_pd(mat_b_col[2], mat_b_col[3]);
-
-        //rearrange low elements
-        mat_b_rearr[0] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x20);
-        mat_b_rearr[2] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x31);
-
-
-        ////unpackhigh////
-        mat_b_col[0] = _mm256_unpackhi_pd(mat_b_col[0], mat_b_col[1]);
-        mat_b_col[1] = _mm256_unpackhi_pd(mat_b_col[2], mat_b_col[3]);
-
-        //rearrange high elements
-        mat_b_rearr[1] = _mm256_permute2f128_pd(mat_b_col[0],mat_b_col[1],0x20);
-        mat_b_rearr[3] = _mm256_permute2f128_pd(mat_b_col[0],mat_b_col[1],0x31);
-
-        //extract a00
-        mat_a_diag_inv[0] = _mm256_permute_pd(reciprocal_diags, 0x00);
-        mat_a_diag_inv[0] = _mm256_permute2f128_pd(mat_a_diag_inv[0], mat_a_diag_inv[0], 0x00);
-
-        //(Row0): Perform mul operation of reciprocal of L(0,0) element with 1st row elements of B
-        mat_b_rearr[0] = _mm256_mul_pd(mat_b_rearr[0], mat_a_diag_inv[0]);
-
-        //extract diag a11 from a
-        mat_a_diag_inv[1] = _mm256_permute_pd(reciprocal_diags, 0x03);
-        mat_a_diag_inv[1] = _mm256_permute2f128_pd(mat_a_diag_inv[1], mat_a_diag_inv[1], 0x00);
-
-        //(Row1): FMA operations of b1 with elements of indices from (1, 0) uptill (3, 0)
-        mat_b_rearr[1] = _mm256_fnmadd_pd(mat_a_cols_rearr[1], mat_b_rearr[0], mat_b_rearr[1]);//d = c - (a*b)
-        mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[3], mat_b_rearr[0], mat_b_rearr[2]);//d = c - (a*b)
-        mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[6], mat_b_rearr[0], mat_b_rearr[3]);//d = c - (a*b)
-
-        //Perform mul operation of reciprocal of L(1,1) element with 2nd row elements of B
-        mat_b_rearr[1] = _mm256_mul_pd(mat_b_rearr[1], mat_a_diag_inv[1]);
-
-        //extract diag a22 from a
-        mat_a_diag_inv[2] = _mm256_permute_pd(reciprocal_diags, 0x00);
-        mat_a_diag_inv[2] = _mm256_permute2f128_pd(mat_a_diag_inv[2], mat_a_diag_inv[2], 0x11);
-
-        //(Row2): FMA operations of b2 with elements of indices from (2, 0) uptill (7, 0)
-        mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[4], mat_b_rearr[1], mat_b_rearr[2]);//d = c - (a*b)
-        mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[7], mat_b_rearr[1], mat_b_rearr[3]);//d = c - (a*b)
-
-         //Perform mul operation of reciprocal of L(2, 2) element with 3rd row elements of B
-        mat_b_rearr[2] = _mm256_mul_pd(mat_b_rearr[2], mat_a_diag_inv[2]);
-
-        //extract diag a33 from a
-        mat_a_diag_inv[3] = _mm256_permute_pd(reciprocal_diags, 0x0C);
-        mat_a_diag_inv[3] = _mm256_permute2f128_pd(mat_a_diag_inv[3], mat_a_diag_inv[3], 0x11);
-    
-        //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
-        mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[8], mat_b_rearr[2], mat_b_rearr[3]);//d = c - (a*b)
-
-        //Perform mul operation of reciprocal of L(3, 3) element with 4rth row elements of B
-        mat_b_rearr[3] = _mm256_mul_pd(mat_b_rearr[3], mat_a_diag_inv[3]);
-    
-        //--> Transpose and store results of columns of B block <--//
-        ////unpacklow////
-        mat_a_cols[1] = _mm256_unpacklo_pd(mat_b_rearr[0], mat_b_rearr[1]);
-        mat_a_cols[3] = _mm256_unpacklo_pd(mat_b_rearr[2], mat_b_rearr[3]);
-
-        //rearrange low elements
-        mat_a_cols[0] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x20);
-        mat_a_cols[2] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x31);
-
-        ////unpackhigh////
-        mat_b_rearr[0] = _mm256_unpackhi_pd(mat_b_rearr[0], mat_b_rearr[1]);
-        mat_b_rearr[1] = _mm256_unpackhi_pd(mat_b_rearr[2], mat_b_rearr[3]);
-
-        //rearrange high elements
-        mat_a_cols[1] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x20);
-        mat_a_cols[3] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x31);
-
-        //Read next set of B columns
-        ptr_b += (cs_b+cs_b_offset[1]);
-        mat_b_col[0] = _mm256_loadu_pd((double const *)ptr_b);
-        mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + (cs_b)));
-        mat_b_col[2] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0]));
-        mat_b_col[3] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1]));
-
-        //Store the computed B columns
-        _mm256_storeu_pd((double *)ptr_b_dup, mat_a_cols[0]);
-        _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_a_cols[1]);
-        _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_a_cols[2]);
-        _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_a_cols[3]);
-
-    }
-    //Last block trsm processing
-
-    ptr_b_dup = ptr_b;
-    /*Shuffle to rearrange/transpose 8x4 block of B into contiguous row-wise registers*/
-
-    ////unpacklow////
-    mat_b_rearr[1] = _mm256_unpacklo_pd(mat_b_col[0], mat_b_col[1]);
-    mat_b_rearr[3] = _mm256_unpacklo_pd(mat_b_col[2], mat_b_col[3]);
-
-    //rearrange low elements
-    mat_b_rearr[0] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x20);
-    mat_b_rearr[2] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x31);
-
-    ////unpackhigh////
-    mat_b_col[0] = _mm256_unpackhi_pd(mat_b_col[0], mat_b_col[1]);
-    mat_b_col[1] = _mm256_unpackhi_pd(mat_b_col[2], mat_b_col[3]);
-
-    //rearrange high elements
-    mat_b_rearr[1] = _mm256_permute2f128_pd(mat_b_col[0],mat_b_col[1],0x20);
-    mat_b_rearr[3] = _mm256_permute2f128_pd(mat_b_col[0],mat_b_col[1],0x31);
-
-    //extract a00
-    mat_a_diag_inv[0] = _mm256_permute_pd(reciprocal_diags, 0x00);
-    mat_a_diag_inv[0] = _mm256_permute2f128_pd(mat_a_diag_inv[0], mat_a_diag_inv[0], 0x00);
-
-    //(Row0): Perform mul operation of reciprocal of L(0,0) element with 1st row elements of B
-    mat_b_rearr[0] = _mm256_mul_pd(mat_b_rearr[0], mat_a_diag_inv[0]);
-
-    //extract diag a11 from a
-    mat_a_diag_inv[1] = _mm256_permute_pd(reciprocal_diags, 0x03);
-    mat_a_diag_inv[1] = _mm256_permute2f128_pd(mat_a_diag_inv[1], mat_a_diag_inv[1], 0x00);
-
-    //(Row1): FMA operations of b1 with elements of indices from (1, 0) uptill (3, 0)
-    mat_b_rearr[1] = _mm256_fnmadd_pd(mat_a_cols_rearr[1], mat_b_rearr[0], mat_b_rearr[1]);//d = c - (a*b)
-    mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[3], mat_b_rearr[0], mat_b_rearr[2]);//d = c - (a*b)
-    mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[6], mat_b_rearr[0], mat_b_rearr[3]);//d = c - (a*b)
-
-    //Perform mul operation of reciprocal of L(1,1) element with 2nd row elements of B
-    mat_b_rearr[1] = _mm256_mul_pd(mat_b_rearr[1], mat_a_diag_inv[1]);
-
-    //extract diag a22 from a
-    mat_a_diag_inv[2] = _mm256_permute_pd(reciprocal_diags, 0x00);
-    mat_a_diag_inv[2] = _mm256_permute2f128_pd(mat_a_diag_inv[2], mat_a_diag_inv[2], 0x11);
-
-    //(Row2): FMA operations of b2 with elements of indices from (2, 0) uptill (7, 0)
-    mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[4], mat_b_rearr[1], mat_b_rearr[2]);//d = c - (a*b)
-    mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[7], mat_b_rearr[1], mat_b_rearr[3]);//d = c - (a*b)
-
-    //Perform mul operation of reciprocal of L(2, 2) element with 3rd row elements of B
-    mat_b_rearr[2] = _mm256_mul_pd(mat_b_rearr[2], mat_a_diag_inv[2]);
-
-    //extract diag a33 from a
-    mat_a_diag_inv[3] = _mm256_permute_pd(reciprocal_diags, 0x0C);
-    mat_a_diag_inv[3] = _mm256_permute2f128_pd(mat_a_diag_inv[3], mat_a_diag_inv[3], 0x11);
-
-    //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
-    mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[8], mat_b_rearr[2], mat_b_rearr[3]);//d = c - (a*b)
-
-    //Perform mul operation of reciprocal of L(3, 3) element with 4rth row elements of B
-    mat_b_rearr[3] = _mm256_mul_pd(mat_b_rearr[3], mat_a_diag_inv[3]);
-
-    //--> Transpose and store results of columns of B block <--//
-    ////unpacklow////
-    mat_a_cols[1] = _mm256_unpacklo_pd(mat_b_rearr[0], mat_b_rearr[1]);
-    mat_a_cols[3] = _mm256_unpacklo_pd(mat_b_rearr[2], mat_b_rearr[3]);
-
-    //rearrange low elements
-    mat_a_cols[0] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x20);
-    mat_a_cols[2] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x31);
-
-    ////unpackhigh////
-    mat_b_rearr[0] = _mm256_unpackhi_pd(mat_b_rearr[0], mat_b_rearr[1]);
-    mat_b_rearr[1] = _mm256_unpackhi_pd(mat_b_rearr[2], mat_b_rearr[3]);
-
-    //rearrange high elements
-    mat_a_cols[1] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x20);
-    mat_a_cols[3] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x31);
-
-    //Store the computed B columns
-    _mm256_storeu_pd((double *)ptr_b_dup, mat_a_cols[0]);
-    _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_a_cols[1]);
-    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_a_cols[2]);
-    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_a_cols[3]);
 }
 /*
 *AX = B A=LOWER TRIANGULAR, NO TRANSPOSE, UNITDIAGONAL
@@ -4335,6 +3895,723 @@ static void blis_strsm_microkernel(float *ptr_l, float *ptr_b, int numRows_lb, i
     _mm256_storeu_ps((float *)(ptr_b_dup + cs_b_offset[4]), mat_a_cols[6]);
     _mm256_storeu_ps((float *)(ptr_b_dup + cs_b_offset[5]), mat_a_cols[7]);
     //end loop of cols
+}
+static void blis_dtrsm_microkernel_alpha(double *ptr_l,
+                     double *ptr_b,
+                     int m,
+                     int n,
+                     int rs_l,
+                     int rs_b,
+                     int cs_l,
+                     int cs_b,
+                     double alphaVal
+                    )
+{
+    int j;
+    int n_remainder = n%4;
+    int cs_b_offset[2];
+    double *ptr_b_dup;
+    double ones = 1.0;
+    __m256d mat_b_col[4];
+    __m256d mat_b_rearr[4];
+    __m256d mat_a_cols[4];
+    __m256d mat_a_cols_rearr[10];
+    __m256d mat_a_diag_inv[4];
+    __m256d reciprocal_diags;
+    __m256d alphaReg;
+
+    cs_b_offset[0] = (cs_b << 1);
+    cs_b_offset[1] = cs_b + cs_b_offset[0];
+
+    reciprocal_diags = _mm256_broadcast_sd((double const *)&ones);
+    alphaReg = _mm256_broadcast_sd((double const *)&alphaVal);
+
+    //if(m % 4 == 0)
+    //{
+    //1st col
+    mat_a_cols_rearr[0] = _mm256_broadcast_sd((double const *)(ptr_l+0));
+    mat_a_cols_rearr[1] = _mm256_broadcast_sd((double const *)(ptr_l+1));
+    mat_a_cols_rearr[3] = _mm256_broadcast_sd((double const *)(ptr_l+2));
+    mat_a_cols_rearr[6] = _mm256_broadcast_sd((double const *)(ptr_l+3));
+
+    //2nd col
+    ptr_l += cs_l;
+    mat_a_cols_rearr[2] = _mm256_broadcast_sd((double const *)(ptr_l + 1));
+    mat_a_cols_rearr[4] = _mm256_broadcast_sd((double const *)(ptr_l + 2));
+    mat_a_cols_rearr[7] = _mm256_broadcast_sd((double const *)(ptr_l + 3));
+
+    //3rd col
+    ptr_l += cs_l;
+    mat_a_cols_rearr[5] = _mm256_broadcast_sd((double const *)(ptr_l + 2));
+    mat_a_cols_rearr[8] = _mm256_broadcast_sd((double const *)(ptr_l + 3));
+
+    //4th col
+    ptr_l += cs_l;
+    mat_a_cols_rearr[9] = _mm256_broadcast_sd((double const *)(ptr_l + 3));
+    //compute reciprocals of L(i,i) and broadcast in registers
+    mat_a_diag_inv[0] = _mm256_unpacklo_pd(mat_a_cols_rearr[0], mat_a_cols_rearr[2]);
+    mat_a_diag_inv[1] = _mm256_unpacklo_pd(mat_a_cols_rearr[5], mat_a_cols_rearr[9]);
+
+    mat_a_diag_inv[0] = _mm256_blend_pd(mat_a_diag_inv[0], mat_a_diag_inv[1], 0x0C);
+    reciprocal_diags = _mm256_div_pd(reciprocal_diags, mat_a_diag_inv[0]);
+
+    for(j = 0;(j+3) < n; j += 4)
+    {
+        ptr_b_dup = ptr_b;
+        /*Shuffle to rearrange/transpose 8x4 block of B into contiguous row-wise registers*/
+
+    //read first set of 4x4 block of B into registers
+    mat_b_col[0] = _mm256_loadu_pd((double const *)ptr_b);
+    mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + (cs_b)));
+    //_mm_prefetch((char*)(ptr_l + cs_l), _MM_HINT_T0);
+    mat_b_col[2] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0]));
+    //_mm_prefetch((char*)(ptr_l + row2), _MM_HINT_T0);
+    mat_b_col[3] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1]));
+
+        ////unpacklow////
+        mat_b_rearr[1] = _mm256_unpacklo_pd(mat_b_col[0], mat_b_col[1]);
+        mat_b_rearr[3] = _mm256_unpacklo_pd(mat_b_col[2], mat_b_col[3]);
+
+        //rearrange low elements
+        mat_b_rearr[0] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x20);
+        mat_b_rearr[2] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x31);
+
+        mat_b_rearr[0] = _mm256_mul_pd(mat_b_rearr[0], alphaReg);
+        mat_b_rearr[2] = _mm256_mul_pd(mat_b_rearr[2], alphaReg);
+
+        ////unpackhigh////
+        mat_b_col[0] = _mm256_unpackhi_pd(mat_b_col[0], mat_b_col[1]);
+        mat_b_col[1] = _mm256_unpackhi_pd(mat_b_col[2], mat_b_col[3]);
+
+        //rearrange high elements
+        mat_b_rearr[1] = _mm256_permute2f128_pd(mat_b_col[0],mat_b_col[1],0x20);
+        mat_b_rearr[3] = _mm256_permute2f128_pd(mat_b_col[0],mat_b_col[1],0x31);
+
+        mat_b_rearr[1] = _mm256_mul_pd(mat_b_rearr[1], alphaReg);
+        mat_b_rearr[3] = _mm256_mul_pd(mat_b_rearr[3], alphaReg);
+        //extract a00
+        mat_a_diag_inv[0] = _mm256_permute_pd(reciprocal_diags, 0x00);
+        mat_a_diag_inv[0] = _mm256_permute2f128_pd(mat_a_diag_inv[0], mat_a_diag_inv[0], 0x00);
+
+        //(Row0): Perform mul operation of reciprocal of L(0,0) element with 1st row elements of B
+        mat_b_rearr[0] = _mm256_mul_pd(mat_b_rearr[0], mat_a_diag_inv[0]);
+
+        //extract diag a11 from a
+        mat_a_diag_inv[1] = _mm256_permute_pd(reciprocal_diags, 0x03);
+        mat_a_diag_inv[1] = _mm256_permute2f128_pd(mat_a_diag_inv[1], mat_a_diag_inv[1], 0x00);
+
+        //(Row1): FMA operations of b1 with elements of indices from (1, 0) uptill (3, 0)
+        mat_b_rearr[1] = _mm256_fnmadd_pd(mat_a_cols_rearr[1], mat_b_rearr[0], mat_b_rearr[1]);//d = c - (a*b)
+        mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[3], mat_b_rearr[0], mat_b_rearr[2]);//d = c - (a*b)
+        mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[6], mat_b_rearr[0], mat_b_rearr[3]);//d = c - (a*b)
+
+        //Perform mul operation of reciprocal of L(1,1) element with 2nd row elements of B
+        mat_b_rearr[1] = _mm256_mul_pd(mat_b_rearr[1], mat_a_diag_inv[1]);
+
+
+        //extract diag a22 from a
+        mat_a_diag_inv[2] = _mm256_permute_pd(reciprocal_diags, 0x00);
+        mat_a_diag_inv[2] = _mm256_permute2f128_pd(mat_a_diag_inv[2], mat_a_diag_inv[2], 0x11);
+
+        //(Row2): FMA operations of b2 with elements of indices from (2, 0) uptill (7, 0)
+        mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[4], mat_b_rearr[1], mat_b_rearr[2]);//d = c - (a*b)
+        mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[7], mat_b_rearr[1], mat_b_rearr[3]);//d = c - (a*b)
+
+        //Perform mul operation of reciprocal of L(2, 2) element with 3rd row elements of B
+        mat_b_rearr[2] = _mm256_mul_pd(mat_b_rearr[2], mat_a_diag_inv[2]);
+
+        //extract diag a33 from a
+        mat_a_diag_inv[3] = _mm256_permute_pd(reciprocal_diags, 0x0C);
+        mat_a_diag_inv[3] = _mm256_permute2f128_pd(mat_a_diag_inv[3], mat_a_diag_inv[3], 0x11);
+
+        //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
+        mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[8], mat_b_rearr[2], mat_b_rearr[3]);//d = c - (a*b)
+
+        //Perform mul operation of reciprocal of L(3, 3) element with 4rth row elements of B
+        mat_b_rearr[3] = _mm256_mul_pd(mat_b_rearr[3], mat_a_diag_inv[3]);
+
+        //--> Transpose and store results of columns of B block <--//
+        ////unpacklow////
+        mat_a_cols[1] = _mm256_unpacklo_pd(mat_b_rearr[0], mat_b_rearr[1]);
+        mat_a_cols[3] = _mm256_unpacklo_pd(mat_b_rearr[2], mat_b_rearr[3]);
+
+        //rearrange low elements
+        mat_a_cols[0] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x20);
+        mat_a_cols[2] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x31);
+
+         ////unpackhigh////
+        mat_b_rearr[0] = _mm256_unpackhi_pd(mat_b_rearr[0], mat_b_rearr[1]);
+
+        mat_b_rearr[1] = _mm256_unpackhi_pd(mat_b_rearr[2], mat_b_rearr[3]);
+
+        //rearrange high elements
+        mat_a_cols[1] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x20);
+        mat_a_cols[3] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x31);
+
+        //Read next set of B columns
+        ptr_b += (cs_b+cs_b_offset[1]);
+        _mm256_storeu_pd((double *)ptr_b_dup, mat_a_cols[0]);
+        _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_a_cols[1]);
+        _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_a_cols[2]);
+        _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_a_cols[3]);
+
+      }
+    ptr_b_dup = ptr_b;
+    if(n_remainder == 3)
+    {
+
+        //read first set of 4x4 block of B into registers
+        mat_b_col[0] = _mm256_loadu_pd((double const *)ptr_b);
+        mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + (cs_b)));
+        mat_b_col[2] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0]));
+	mat_b_col[3] = _mm256_broadcast_sd((double const *)&ones);
+    }
+    if(n_remainder == 2)
+    {
+        //read first set of 4x4 block of B into registers
+        mat_b_col[0] = _mm256_loadu_pd((double const *)ptr_b);
+        mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + (cs_b)));
+        mat_b_col[2] = _mm256_broadcast_sd((double const *)&ones);
+	mat_b_col[3] = _mm256_broadcast_sd((double const *)&ones);
+    }
+    if(n_remainder == 1)
+    {
+        //read first set of 4x4 block of B into registers
+        mat_b_col[0] = _mm256_loadu_pd((double const *)ptr_b);
+        mat_b_col[1] = _mm256_broadcast_sd((double const *)&ones);
+        mat_b_col[2] = _mm256_broadcast_sd((double const *)&ones);
+	mat_b_col[3] = _mm256_broadcast_sd((double const *)&ones);
+    }
+    /*Shuffle to rearrange/transpose 8x4 block of B into contiguous row-wise registers*/
+    ////unpacklow////
+    mat_b_rearr[1] = _mm256_unpacklo_pd(mat_b_col[0], mat_b_col[1]);
+    mat_b_rearr[3] = _mm256_unpacklo_pd(mat_b_col[2], mat_b_col[3]);
+    //rearrange low elements
+    mat_b_rearr[0] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x20);
+    mat_b_rearr[2] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x31);
+    mat_b_rearr[0] = _mm256_mul_pd(mat_b_rearr[0], alphaReg);
+    mat_b_rearr[2] = _mm256_mul_pd(mat_b_rearr[2], alphaReg);
+    ////unpackhigh////
+    mat_b_col[0] = _mm256_unpackhi_pd(mat_b_col[0], mat_b_col[1]);
+    mat_b_col[1] = _mm256_unpackhi_pd(mat_b_col[2], mat_b_col[3]);
+    //rearrange high elements
+    mat_b_rearr[1] = _mm256_permute2f128_pd(mat_b_col[0],mat_b_col[1],0x20);
+    mat_b_rearr[3] = _mm256_permute2f128_pd(mat_b_col[0],mat_b_col[1],0x31);
+    mat_b_rearr[1] = _mm256_mul_pd(mat_b_rearr[1], alphaReg);
+    mat_b_rearr[3] = _mm256_mul_pd(mat_b_rearr[3], alphaReg);
+    //extract a00
+    mat_a_diag_inv[0] = _mm256_permute_pd(reciprocal_diags, 0x00);
+    mat_a_diag_inv[0] = _mm256_permute2f128_pd(mat_a_diag_inv[0], mat_a_diag_inv[0], 0x00);
+    //(Row0): Perform mul operation of reciprocal of L(0,0) element with 1st row elements of B
+    mat_b_rearr[0] = _mm256_mul_pd(mat_b_rearr[0], mat_a_diag_inv[0]);
+    //extract diag a11 from a
+    mat_a_diag_inv[1] = _mm256_permute_pd(reciprocal_diags, 0x03);
+    mat_a_diag_inv[1] = _mm256_permute2f128_pd(mat_a_diag_inv[1], mat_a_diag_inv[1], 0x00);
+    //(Row1): FMA operations of b1 with elements of indices from (1, 0) uptill (3, 0)
+    mat_b_rearr[1] = _mm256_fnmadd_pd(mat_a_cols_rearr[1], mat_b_rearr[0], mat_b_rearr[1]);//d = c - (a*b)
+    mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[3], mat_b_rearr[0], mat_b_rearr[2]);//d = c - (a*b)
+    mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[6], mat_b_rearr[0], mat_b_rearr[3]);//d = c - (a*b)
+    //Perform mul operation of reciprocal of L(1,1) element with 2nd row elements of B
+    mat_b_rearr[1] = _mm256_mul_pd(mat_b_rearr[1], mat_a_diag_inv[1]);
+    //extract diag a22 from a
+    mat_a_diag_inv[2] = _mm256_permute_pd(reciprocal_diags, 0x00);
+    mat_a_diag_inv[2] = _mm256_permute2f128_pd(mat_a_diag_inv[2], mat_a_diag_inv[2], 0x11);
+    //(Row2): FMA operations of b2 with elements of indices from (2, 0) uptill (7, 0)
+    mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[4], mat_b_rearr[1], mat_b_rearr[2]);//d = c - (a*b)
+    mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[7], mat_b_rearr[1], mat_b_rearr[3]);//d = c - (a*b)
+    //Perform mul operation of reciprocal of L(2, 2) element with 3rd row elements of B
+    mat_b_rearr[2] = _mm256_mul_pd(mat_b_rearr[2], mat_a_diag_inv[2]);
+    //extract diag a33 from a
+    mat_a_diag_inv[3] = _mm256_permute_pd(reciprocal_diags, 0x0C);
+    mat_a_diag_inv[3] = _mm256_permute2f128_pd(mat_a_diag_inv[3], mat_a_diag_inv[3], 0x11);
+    //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
+    mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[8], mat_b_rearr[2], mat_b_rearr[3]);//d = c - (a*b)
+    //Perform mul operation of reciprocal of L(3, 3) element with 4rth row elements of B
+    mat_b_rearr[3] = _mm256_mul_pd(mat_b_rearr[3], mat_a_diag_inv[3]);
+    //--> Transpose and store results of columns of B block <--//
+    ////unpacklow////
+    mat_a_cols[1] = _mm256_unpacklo_pd(mat_b_rearr[0], mat_b_rearr[1]);
+    mat_a_cols[3] = _mm256_unpacklo_pd(mat_b_rearr[2], mat_b_rearr[3]);
+    //rearrange low elements
+    mat_a_cols[0] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x20);
+    mat_a_cols[2] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x31);
+    ////unpackhigh////
+    mat_b_rearr[0] = _mm256_unpackhi_pd(mat_b_rearr[0], mat_b_rearr[1]);
+    mat_b_rearr[1] = _mm256_unpackhi_pd(mat_b_rearr[2], mat_b_rearr[3]);
+    //rearrange high elements
+    mat_a_cols[1] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x20);
+    mat_a_cols[3] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x31);
+     //Store the computed B columns
+    if(n_remainder == 3)
+    {
+    _mm256_storeu_pd((double *)ptr_b_dup, mat_a_cols[0]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_a_cols[1]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_a_cols[2]);
+    }
+    if(n_remainder == 2)
+    {
+    _mm256_storeu_pd((double *)ptr_b_dup, mat_a_cols[0]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_a_cols[1]);
+    }
+    if(n_remainder == 1)
+    {
+    _mm256_storeu_pd((double *)ptr_b_dup, mat_a_cols[0]);
+    }
+
+  //}
+
+}
+static void blis_dtrsm_microkernel(double *ptr_l,
+                     double *ptr_b,
+                     int m,
+                     int n,
+                     int rs_l,
+                     int rs_b,
+                     int cs_l,
+                     int cs_b
+                    )
+{
+    int j;
+    int n_remainder = n%4;
+    int cs_b_offset[2];
+    double *ptr_b_dup;
+    double ones = 1.0;
+    __m256d mat_b_col[4];
+    __m256d mat_b_rearr[4];
+    __m256d mat_a_cols[4];
+    __m256d mat_a_cols_rearr[10];
+    __m256d mat_a_diag_inv[4];
+    __m256d reciprocal_diags;
+
+    cs_b_offset[0] = (cs_b << 1);
+    cs_b_offset[1] = cs_b + cs_b_offset[0];
+
+    reciprocal_diags = _mm256_broadcast_sd((double const *)&ones);
+
+    //if(m % 4 == 0)
+    //{
+    //1st col
+    mat_a_cols_rearr[0] = _mm256_broadcast_sd((double const *)(ptr_l+0));
+    mat_a_cols_rearr[1] = _mm256_broadcast_sd((double const *)(ptr_l+1));
+    mat_a_cols_rearr[3] = _mm256_broadcast_sd((double const *)(ptr_l+2));
+    mat_a_cols_rearr[6] = _mm256_broadcast_sd((double const *)(ptr_l+3));
+
+    //2nd col
+    ptr_l += cs_l;
+    mat_a_cols_rearr[2] = _mm256_broadcast_sd((double const *)(ptr_l + 1));
+    mat_a_cols_rearr[4] = _mm256_broadcast_sd((double const *)(ptr_l + 2));
+    mat_a_cols_rearr[7] = _mm256_broadcast_sd((double const *)(ptr_l + 3));
+
+    //3rd col
+    ptr_l += cs_l;
+    mat_a_cols_rearr[5] = _mm256_broadcast_sd((double const *)(ptr_l + 2));
+    mat_a_cols_rearr[8] = _mm256_broadcast_sd((double const *)(ptr_l + 3));
+
+    //4th col
+    ptr_l += cs_l;
+    mat_a_cols_rearr[9] = _mm256_broadcast_sd((double const *)(ptr_l + 3));
+    //compute reciprocals of L(i,i) and broadcast in registers
+    mat_a_diag_inv[0] = _mm256_unpacklo_pd(mat_a_cols_rearr[0], mat_a_cols_rearr[2]);
+    mat_a_diag_inv[1] = _mm256_unpacklo_pd(mat_a_cols_rearr[5], mat_a_cols_rearr[9]);
+
+    mat_a_diag_inv[0] = _mm256_blend_pd(mat_a_diag_inv[0], mat_a_diag_inv[1], 0x0C);
+    reciprocal_diags = _mm256_div_pd(reciprocal_diags, mat_a_diag_inv[0]);
+
+    for(j = 0;(j+3) < n; j += 4)
+    {
+        ptr_b_dup = ptr_b;
+        /*Shuffle to rearrange/transpose 8x4 block of B into contiguous row-wise registers*/
+
+    //read first set of 4x4 block of B into registers
+    mat_b_col[0] = _mm256_loadu_pd((double const *)ptr_b);
+    mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + (cs_b)));
+    //_mm_prefetch((char*)(ptr_l + cs_l), _MM_HINT_T0);
+    mat_b_col[2] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0]));
+    //_mm_prefetch((char*)(ptr_l + row2), _MM_HINT_T0);
+    mat_b_col[3] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1]));
+
+        ////unpacklow////
+        mat_b_rearr[1] = _mm256_unpacklo_pd(mat_b_col[0], mat_b_col[1]);
+        mat_b_rearr[3] = _mm256_unpacklo_pd(mat_b_col[2], mat_b_col[3]);
+
+        //rearrange low elements
+        mat_b_rearr[0] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x20);
+        mat_b_rearr[2] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x31);
+
+        ////unpackhigh////
+        mat_b_col[0] = _mm256_unpackhi_pd(mat_b_col[0], mat_b_col[1]);
+        mat_b_col[1] = _mm256_unpackhi_pd(mat_b_col[2], mat_b_col[3]);
+
+        //rearrange high elements
+        mat_b_rearr[1] = _mm256_permute2f128_pd(mat_b_col[0],mat_b_col[1],0x20);
+        mat_b_rearr[3] = _mm256_permute2f128_pd(mat_b_col[0],mat_b_col[1],0x31);
+
+        //extract a00
+        mat_a_diag_inv[0] = _mm256_permute_pd(reciprocal_diags, 0x00);
+        mat_a_diag_inv[0] = _mm256_permute2f128_pd(mat_a_diag_inv[0], mat_a_diag_inv[0], 0x00);
+
+        //(Row0): Perform mul operation of reciprocal of L(0,0) element with 1st row elements of B
+        mat_b_rearr[0] = _mm256_mul_pd(mat_b_rearr[0], mat_a_diag_inv[0]);
+
+        //extract diag a11 from a
+        mat_a_diag_inv[1] = _mm256_permute_pd(reciprocal_diags, 0x03);
+        mat_a_diag_inv[1] = _mm256_permute2f128_pd(mat_a_diag_inv[1], mat_a_diag_inv[1], 0x00);
+
+        //(Row1): FMA operations of b1 with elements of indices from (1, 0) uptill (3, 0)
+        mat_b_rearr[1] = _mm256_fnmadd_pd(mat_a_cols_rearr[1], mat_b_rearr[0], mat_b_rearr[1]);//d = c - (a*b)
+        mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[3], mat_b_rearr[0], mat_b_rearr[2]);//d = c - (a*b)
+        mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[6], mat_b_rearr[0], mat_b_rearr[3]);//d = c - (a*b)
+
+        //Perform mul operation of reciprocal of L(1,1) element with 2nd row elements of B
+        mat_b_rearr[1] = _mm256_mul_pd(mat_b_rearr[1], mat_a_diag_inv[1]);
+
+
+        //extract diag a22 from a
+        mat_a_diag_inv[2] = _mm256_permute_pd(reciprocal_diags, 0x00);
+        mat_a_diag_inv[2] = _mm256_permute2f128_pd(mat_a_diag_inv[2], mat_a_diag_inv[2], 0x11);
+
+        //(Row2): FMA operations of b2 with elements of indices from (2, 0) uptill (7, 0)
+        mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[4], mat_b_rearr[1], mat_b_rearr[2]);//d = c - (a*b)
+        mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[7], mat_b_rearr[1], mat_b_rearr[3]);//d = c - (a*b)
+
+        //Perform mul operation of reciprocal of L(2, 2) element with 3rd row elements of B
+        mat_b_rearr[2] = _mm256_mul_pd(mat_b_rearr[2], mat_a_diag_inv[2]);
+
+        //extract diag a33 from a
+        mat_a_diag_inv[3] = _mm256_permute_pd(reciprocal_diags, 0x0C);
+        mat_a_diag_inv[3] = _mm256_permute2f128_pd(mat_a_diag_inv[3], mat_a_diag_inv[3], 0x11);
+
+        //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
+        mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[8], mat_b_rearr[2], mat_b_rearr[3]);//d = c - (a*b)
+
+        //Perform mul operation of reciprocal of L(3, 3) element with 4rth row elements of B
+        mat_b_rearr[3] = _mm256_mul_pd(mat_b_rearr[3], mat_a_diag_inv[3]);
+
+        //--> Transpose and store results of columns of B block <--//
+        ////unpacklow////
+        mat_a_cols[1] = _mm256_unpacklo_pd(mat_b_rearr[0], mat_b_rearr[1]);
+        mat_a_cols[3] = _mm256_unpacklo_pd(mat_b_rearr[2], mat_b_rearr[3]);
+
+        //rearrange low elements
+        mat_a_cols[0] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x20);
+        mat_a_cols[2] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x31);
+
+         ////unpackhigh////
+        mat_b_rearr[0] = _mm256_unpackhi_pd(mat_b_rearr[0], mat_b_rearr[1]);
+
+        mat_b_rearr[1] = _mm256_unpackhi_pd(mat_b_rearr[2], mat_b_rearr[3]);
+
+        //rearrange high elements
+        mat_a_cols[1] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x20);
+        mat_a_cols[3] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x31);
+
+        //Read next set of B columns
+        ptr_b += (cs_b+cs_b_offset[1]);
+        _mm256_storeu_pd((double *)ptr_b_dup, mat_a_cols[0]);
+        _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_a_cols[1]);
+        _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_a_cols[2]);
+        _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_a_cols[3]);
+
+      }
+    ptr_b_dup = ptr_b;
+    if(n_remainder == 3)
+    {
+
+        //read first set of 4x4 block of B into registers
+        mat_b_col[0] = _mm256_loadu_pd((double const *)ptr_b);
+        mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + (cs_b)));
+        mat_b_col[2] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0]));
+	mat_b_col[3] = _mm256_broadcast_sd((double const *)&ones);
+    }
+    if(n_remainder == 2)
+    {
+        //read first set of 4x4 block of B into registers
+        mat_b_col[0] = _mm256_loadu_pd((double const *)ptr_b);
+        mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + (cs_b)));
+        mat_b_col[2] = _mm256_broadcast_sd((double const *)&ones);
+	mat_b_col[3] = _mm256_broadcast_sd((double const *)&ones);
+    }
+    if(n_remainder == 1)
+    {
+        //read first set of 4x4 block of B into registers
+        mat_b_col[0] = _mm256_loadu_pd((double const *)ptr_b);
+        mat_b_col[1] = _mm256_broadcast_sd((double const *)&ones);
+        mat_b_col[2] = _mm256_broadcast_sd((double const *)&ones);
+	mat_b_col[3] = _mm256_broadcast_sd((double const *)&ones);
+    }
+    /*Shuffle to rearrange/transpose 8x4 block of B into contiguous row-wise registers*/
+    ////unpacklow////
+    mat_b_rearr[1] = _mm256_unpacklo_pd(mat_b_col[0], mat_b_col[1]);
+    mat_b_rearr[3] = _mm256_unpacklo_pd(mat_b_col[2], mat_b_col[3]);
+    //rearrange low elements
+    mat_b_rearr[0] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x20);
+    mat_b_rearr[2] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x31);
+    ////unpackhigh////
+    mat_b_col[0] = _mm256_unpackhi_pd(mat_b_col[0], mat_b_col[1]);
+    mat_b_col[1] = _mm256_unpackhi_pd(mat_b_col[2], mat_b_col[3]);
+    //rearrange high elements
+    mat_b_rearr[1] = _mm256_permute2f128_pd(mat_b_col[0],mat_b_col[1],0x20);
+    mat_b_rearr[3] = _mm256_permute2f128_pd(mat_b_col[0],mat_b_col[1],0x31);
+    //extract a00
+    mat_a_diag_inv[0] = _mm256_permute_pd(reciprocal_diags, 0x00);
+    mat_a_diag_inv[0] = _mm256_permute2f128_pd(mat_a_diag_inv[0], mat_a_diag_inv[0], 0x00);
+    //(Row0): Perform mul operation of reciprocal of L(0,0) element with 1st row elements of B
+    mat_b_rearr[0] = _mm256_mul_pd(mat_b_rearr[0], mat_a_diag_inv[0]);
+    //extract diag a11 from a
+    mat_a_diag_inv[1] = _mm256_permute_pd(reciprocal_diags, 0x03);
+    mat_a_diag_inv[1] = _mm256_permute2f128_pd(mat_a_diag_inv[1], mat_a_diag_inv[1], 0x00);
+    //(Row1): FMA operations of b1 with elements of indices from (1, 0) uptill (3, 0)
+    mat_b_rearr[1] = _mm256_fnmadd_pd(mat_a_cols_rearr[1], mat_b_rearr[0], mat_b_rearr[1]);//d = c - (a*b)
+    mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[3], mat_b_rearr[0], mat_b_rearr[2]);//d = c - (a*b)
+    mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[6], mat_b_rearr[0], mat_b_rearr[3]);//d = c - (a*b)
+    //Perform mul operation of reciprocal of L(1,1) element with 2nd row elements of B
+    mat_b_rearr[1] = _mm256_mul_pd(mat_b_rearr[1], mat_a_diag_inv[1]);
+    //extract diag a22 from a
+    mat_a_diag_inv[2] = _mm256_permute_pd(reciprocal_diags, 0x00);
+    mat_a_diag_inv[2] = _mm256_permute2f128_pd(mat_a_diag_inv[2], mat_a_diag_inv[2], 0x11);
+    //(Row2): FMA operations of b2 with elements of indices from (2, 0) uptill (7, 0)
+    mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[4], mat_b_rearr[1], mat_b_rearr[2]);//d = c - (a*b)
+    mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[7], mat_b_rearr[1], mat_b_rearr[3]);//d = c - (a*b)
+    //Perform mul operation of reciprocal of L(2, 2) element with 3rd row elements of B
+    mat_b_rearr[2] = _mm256_mul_pd(mat_b_rearr[2], mat_a_diag_inv[2]);
+    //extract diag a33 from a
+    mat_a_diag_inv[3] = _mm256_permute_pd(reciprocal_diags, 0x0C);
+    mat_a_diag_inv[3] = _mm256_permute2f128_pd(mat_a_diag_inv[3], mat_a_diag_inv[3], 0x11);
+    //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
+    mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[8], mat_b_rearr[2], mat_b_rearr[3]);//d = c - (a*b)
+    //Perform mul operation of reciprocal of L(3, 3) element with 4rth row elements of B
+    mat_b_rearr[3] = _mm256_mul_pd(mat_b_rearr[3], mat_a_diag_inv[3]);
+    //--> Transpose and store results of columns of B block <--//
+    ////unpacklow////
+    mat_a_cols[1] = _mm256_unpacklo_pd(mat_b_rearr[0], mat_b_rearr[1]);
+    mat_a_cols[3] = _mm256_unpacklo_pd(mat_b_rearr[2], mat_b_rearr[3]);
+    //rearrange low elements
+    mat_a_cols[0] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x20);
+    mat_a_cols[2] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x31);
+    ////unpackhigh////
+    mat_b_rearr[0] = _mm256_unpackhi_pd(mat_b_rearr[0], mat_b_rearr[1]);
+    mat_b_rearr[1] = _mm256_unpackhi_pd(mat_b_rearr[2], mat_b_rearr[3]);
+    //rearrange high elements
+    mat_a_cols[1] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x20);
+    mat_a_cols[3] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x31);
+     //Store the computed B columns
+    if(n_remainder == 3)
+    {
+    _mm256_storeu_pd((double *)ptr_b_dup, mat_a_cols[0]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_a_cols[1]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_a_cols[2]);
+    }
+    if(n_remainder == 2)
+    {
+    _mm256_storeu_pd((double *)ptr_b_dup, mat_a_cols[0]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_a_cols[1]);
+    }
+    if(n_remainder == 1)
+    {
+    _mm256_storeu_pd((double *)ptr_b_dup, mat_a_cols[0]);
+    }
+
+  //}
+
+}
+static void blis_dtrsm_microkernel_corner(double *ptr_l,
+                     double *ptr_b,
+                     int m,
+                     int n,
+                     int rs_l,
+                     int rs_b,
+                     int cs_l,
+                     int cs_b
+                    )
+{
+    int j;
+    int n_remainder = n%4;
+    int m_remainder = m%4;
+    int cs_b_offset[2];
+    double *ptr_b_dup;
+    double *ptr_a_dup;
+    double ones = 1.0;
+    __m256d mat_b_col[4];
+    __m256d mat_b_rearr[6];
+    __m256d mat_a_cols[4];
+    __m256d mat_a_cols_rearr[10];
+    __m256d mat_a_diag_inv[4];
+    __m256d reciprocal_diags;
+
+    cs_b_offset[0] = (cs_b << 1);
+    cs_b_offset[1] = cs_b + cs_b_offset[0];
+
+    reciprocal_diags = _mm256_broadcast_sd((double const *)&ones);
+
+    ptr_a_dup = ptr_l;
+
+    //1st col
+    mat_a_cols_rearr[0] = _mm256_broadcast_sd((double const *)(ptr_l+0));
+    mat_a_cols_rearr[1] = _mm256_broadcast_sd((double const *)(ptr_l+1));
+    mat_a_cols_rearr[3] = _mm256_broadcast_sd((double const *)(ptr_l+2));
+    mat_a_cols_rearr[6] = _mm256_broadcast_sd((double const *)(ptr_l+3));
+
+    //2nd col
+    ptr_l += cs_l;
+    mat_a_cols_rearr[2] = _mm256_broadcast_sd((double const *)(ptr_l + 1));
+    mat_a_cols_rearr[4] = _mm256_broadcast_sd((double const *)(ptr_l + 2));
+    mat_a_cols_rearr[7] = _mm256_broadcast_sd((double const *)(ptr_l + 3));
+
+    //3rd col
+    ptr_l += cs_l;
+    mat_a_cols_rearr[5] = _mm256_broadcast_sd((double const *)(ptr_l + 2));
+    mat_a_cols_rearr[8] = _mm256_broadcast_sd((double const *)(ptr_l + 3));
+
+    //4th col
+    ptr_l += cs_l;
+    mat_a_cols_rearr[9] = _mm256_broadcast_sd((double const *)(ptr_l + 3));
+    //compute reciprocals of L(i,i) and broadcast in registers
+    mat_a_diag_inv[0] = _mm256_unpacklo_pd(mat_a_cols_rearr[0], mat_a_cols_rearr[2]);
+    mat_a_diag_inv[1] = _mm256_unpacklo_pd(mat_a_cols_rearr[5], mat_a_cols_rearr[9]);
+
+    mat_a_diag_inv[0] = _mm256_blend_pd(mat_a_diag_inv[0], mat_a_diag_inv[1], 0x0C);
+    reciprocal_diags = _mm256_div_pd(reciprocal_diags, mat_a_diag_inv[0]);
+
+    for(j = 0;(j+3) < n; j += 4)
+    {
+        ptr_b_dup = ptr_b;
+        /*Shuffle to rearrange/transpose 8x4 block of B into contiguous row-wise registers*/
+
+    //read first set of 4x4 block of B into registers
+    mat_b_col[0] = _mm256_loadu_pd((double const *)ptr_b);
+    mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + (cs_b)));
+    //_mm_prefetch((char*)(ptr_l + cs_l), _MM_HINT_T0);
+    mat_b_col[2] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0]));
+    //_mm_prefetch((char*)(ptr_l + row2), _MM_HINT_T0);
+    mat_b_col[3] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1]));
+
+        ////unpacklow////
+        mat_b_rearr[1] = _mm256_unpacklo_pd(mat_b_col[0], mat_b_col[1]);
+        mat_b_rearr[3] = _mm256_unpacklo_pd(mat_b_col[2], mat_b_col[3]);
+
+        //rearrange low elements
+        mat_b_rearr[0] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x20);
+        mat_b_rearr[2] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x31);
+
+        ////unpackhigh////
+        mat_b_rearr[4] = _mm256_unpackhi_pd(mat_b_col[0], mat_b_col[1]);
+        mat_b_rearr[5] = _mm256_unpackhi_pd(mat_b_col[2], mat_b_col[3]);
+
+        //rearrange high elements
+        mat_b_rearr[1] = _mm256_permute2f128_pd(mat_b_rearr[4],mat_b_rearr[5],0x20);
+        mat_b_rearr[3] = _mm256_permute2f128_pd(mat_b_rearr[4],mat_b_col[5],0x31);
+
+        //extract a00
+        mat_a_diag_inv[0] = _mm256_permute_pd(reciprocal_diags, 0x00);
+        mat_a_diag_inv[0] = _mm256_permute2f128_pd(mat_a_diag_inv[0], mat_a_diag_inv[0], 0x00);
+
+        //(Row0): Perform mul operation of reciprocal of L(0,0) element with 1st row elements of B
+        mat_b_rearr[0] = _mm256_mul_pd(mat_b_rearr[0], mat_a_diag_inv[0]);
+
+        //extract diag a11 from a
+        mat_a_diag_inv[1] = _mm256_permute_pd(reciprocal_diags, 0x03);
+        mat_a_diag_inv[1] = _mm256_permute2f128_pd(mat_a_diag_inv[1], mat_a_diag_inv[1], 0x00);
+
+        //(Row1): FMA operations of b1 with elements of indices from (1, 0) uptill (3, 0)
+        mat_b_rearr[1] = _mm256_fnmadd_pd(mat_a_cols_rearr[1], mat_b_rearr[0], mat_b_rearr[1]);//d = c - (a*b)
+        mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[3], mat_b_rearr[0], mat_b_rearr[2]);//d = c - (a*b)
+        mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[6], mat_b_rearr[0], mat_b_rearr[3]);//d = c - (a*b)
+
+        //Perform mul operation of reciprocal of L(1,1) element with 2nd row elements of B
+        mat_b_rearr[1] = _mm256_mul_pd(mat_b_rearr[1], mat_a_diag_inv[1]);
+
+
+        //extract diag a22 from a
+        mat_a_diag_inv[2] = _mm256_permute_pd(reciprocal_diags, 0x00);
+        mat_a_diag_inv[2] = _mm256_permute2f128_pd(mat_a_diag_inv[2], mat_a_diag_inv[2], 0x11);
+
+        //(Row2): FMA operations of b2 with elements of indices from (2, 0) uptill (7, 0)
+        mat_b_rearr[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[4], mat_b_rearr[1], mat_b_rearr[2]);//d = c - (a*b)
+        mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[7], mat_b_rearr[1], mat_b_rearr[3]);//d = c - (a*b)
+
+        //Perform mul operation of reciprocal of L(2, 2) element with 3rd row elements of B
+        mat_b_rearr[2] = _mm256_mul_pd(mat_b_rearr[2], mat_a_diag_inv[2]);
+
+        //extract diag a33 from a
+        mat_a_diag_inv[3] = _mm256_permute_pd(reciprocal_diags, 0x0C);
+        mat_a_diag_inv[3] = _mm256_permute2f128_pd(mat_a_diag_inv[3], mat_a_diag_inv[3], 0x11);
+
+        //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
+        mat_b_rearr[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[8], mat_b_rearr[2], mat_b_rearr[3]);//d = c - (a*b)
+
+        //Perform mul operation of reciprocal of L(3, 3) element with 4rth row elements of B
+        mat_b_rearr[3] = _mm256_mul_pd(mat_b_rearr[3], mat_a_diag_inv[3]);
+
+        //--> Transpose and store results of columns of B block <--//
+        ////unpacklow////
+        mat_a_cols[1] = _mm256_unpacklo_pd(mat_b_rearr[0], mat_b_rearr[1]);
+        mat_a_cols[3] = _mm256_unpacklo_pd(mat_b_rearr[2], mat_b_rearr[3]);
+
+        //rearrange low elements
+        mat_a_cols[0] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x20);
+        mat_a_cols[2] = _mm256_permute2f128_pd(mat_a_cols[1],mat_a_cols[3],0x31);
+
+         ////unpackhigh////
+        mat_b_rearr[0] = _mm256_unpackhi_pd(mat_b_rearr[0], mat_b_rearr[1]);
+
+        mat_b_rearr[1] = _mm256_unpackhi_pd(mat_b_rearr[2], mat_b_rearr[3]);
+
+        //rearrange high elements
+        mat_a_cols[1] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x20);
+        mat_a_cols[3] = _mm256_permute2f128_pd(mat_b_rearr[0],mat_b_rearr[1],0x31);
+
+	ptr_b += (cs_b+cs_b_offset[1]);
+
+	if(m_remainder == 3)
+	{
+	mat_b_rearr[0] = _mm256_blend_pd(mat_a_cols[0],mat_b_col[0],0x08);
+	mat_b_rearr[1] = _mm256_blend_pd(mat_a_cols[1],mat_b_col[1],0x08);
+	mat_b_rearr[2] = _mm256_blend_pd(mat_a_cols[2],mat_b_col[2],0x08);
+	mat_b_rearr[3] = _mm256_blend_pd(mat_a_cols[3],mat_b_col[3],0x08);
+
+	}
+        if(m_remainder == 2)
+        {
+        mat_b_rearr[0] = _mm256_permute2f128_pd(mat_a_cols[0],mat_b_col[0],0x30);
+        mat_b_rearr[1] = _mm256_permute2f128_pd(mat_a_cols[1],mat_b_col[1],0x30);
+        mat_b_rearr[2] = _mm256_permute2f128_pd(mat_a_cols[2],mat_b_col[2],0x30);
+        mat_b_rearr[3] = _mm256_permute2f128_pd(mat_a_cols[3],mat_b_col[3],0x30);
+
+        }
+
+	if(m_remainder == 1)
+	{
+	mat_b_rearr[0] = _mm256_blend_pd(mat_a_cols[0],mat_b_col[0],0x0E);
+	mat_b_rearr[1] = _mm256_blend_pd(mat_a_cols[1],mat_b_col[1],0x0E);
+	mat_b_rearr[2] = _mm256_blend_pd(mat_a_cols[2],mat_b_col[2],0x0E);
+	mat_b_rearr[3] = _mm256_blend_pd(mat_a_cols[3],mat_b_col[3],0x0E);
+	}
+        _mm256_storeu_pd((double *)ptr_b_dup, mat_b_rearr[0]);
+        _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_b_rearr[1]);
+        _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_b_rearr[2]);
+        _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_b_rearr[3]);
+
+    }
+    ptr_b_dup = ptr_b;
+    if(n_remainder)
+    {
+	int i,j,k;
+	 for (k = 0; k < m_remainder; k++)
+	    {
+      		double lkk_inv = 1.0/ptr_a_dup[k+k*cs_l];
+
+      		for (j = 0; j < n_remainder; j++)
+    		{
+      		    ptr_b_dup[k + j*cs_b] *= lkk_inv;
+
+		      for (i = k+1; i < m_remainder; i++)
+        		{
+		          ptr_b_dup[i + j*cs_b] -= ptr_a_dup[i + k*cs_l] * ptr_b_dup[k + j*cs_b];
+        		}
+    		}
+    	    }// k -loop
+
+    }
 }
 
 ///////////////////////////////////// XA'=B functions ////////////////////////////////
