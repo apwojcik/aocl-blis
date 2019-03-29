@@ -47,6 +47,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define BLI_AutXB_M_SP   64
 #define BLI_AutXB_N_SP   128
 
+
+static void blis_dtrsm_microkernel_XAuB_unitdiag(double *ptr_l,
+				double *ptr_b,
+				int numRows_b,
+				int numCols_b,
+				int rs_a,
+				int rs_b,
+				int cs_l,
+				int cs_b
+				);
+
 static err_t trsm_small_AlXB (
                   obj_t *A,
                   obj_t *B,
@@ -330,6 +341,16 @@ static err_t bli_dtrsm_small_AutXB
        cntx_t* cntx,
        cntl_t* cntl
      );
+// XA = B; A is upper triangular; No transpose; double presicion
+static err_t bli_dtrsm_small_XAuB
+     (
+       side_t  side,
+       obj_t*  alpha,
+       obj_t*  a,
+       obj_t*  b,
+       cntx_t* cntx,
+       cntl_t* cntl
+     );
 
 
 //XA.' = B;  A is lower triangular; A has to be transposed; double precision
@@ -491,7 +512,30 @@ err_t bli_trsm_small
     }
     else
     {
-        return BLIS_NOT_YET_IMPLEMENTED;
+        if (dt == BLIS_DOUBLE)
+        {
+            if (bli_obj_is_upper(a))
+            {
+                return bli_dtrsm_small_XAuB(side, alpha, a, b, cntx, cntl);
+            }
+            else
+            {
+                //XA.' = B;  A is lower triangular; A has to be transposed; double precision
+                return bli_dtrsm_small_XAltB(side, alpha, a, b, cntx, cntl);
+            }
+        }
+        else if (dt == BLIS_FLOAT)
+        {
+            if (bli_obj_is_upper(a))
+            {
+                return BLIS_NOT_YET_IMPLEMENTED;
+            }
+            else
+            {
+                //XA.' = B;  A is lower triangular; A has to be transposed; single precision
+                return bli_strsm_small_XAltB(side, alpha, a, b, cntx, cntl);
+            }
+        }
     }
     }
 
@@ -682,7 +726,7 @@ static err_t bli_dtrsm_small_AlXB (
           }
   }
 
-bli_printm("b after first block solve",b,"%4.1f","");
+//bli_printm("b after first block solve",b,"%4.1f","");
 //gemm update
   for (j = i + blk_size; j+3 < m; j += blk_size) // for rows upto multiple of BLOCK_HEIGHT
   {
@@ -696,7 +740,7 @@ if(m_remainder != 0)
       Gc_remainder.buffer = (void*)(B + j);
       bli_gemm_small(&alpha, &Ga_remainder, &Gb_remainder, &beta, &Gc_remainder, cntx, cntl ); // Gc = beta*Gc + alpha*Ga *Gb
   }
-bli_printm("b after gemm update of first block",b,"%4.1f","");
+//bli_printm("b after gemm update of first block",b,"%4.1f","");
   bli_setsc( (1.0), 0.0, &beta );
 
   //trsm of remaining blocks
@@ -706,7 +750,7 @@ bli_printm("b after gemm update of first block",b,"%4.1f","");
 
           fp_blis_dtrsm_microkernel((L + i * lda + i), (B + i), m, n, rsa, rsb, lda, ldb);
 
-	bli_printm("b after second block solve",b,"%4.1f","");
+	//bli_printm("b after second block solve",b,"%4.1f","");
           for (j = i + blk_size; (j+3) < m; j += blk_size) // for rows upto multiple of BLOCK_HEIGHT
           {
               Ga.buffer = (void*)(L + j + i*lda);
@@ -721,7 +765,7 @@ bli_printm("b after gemm update of first block",b,"%4.1f","");
 
               bli_gemm_small(&alpha, &Ga_remainder, &Gb_remainder, &beta, &Gc_remainder, cntx, cntl ); // Gc = beta*Gc + alpha*Ga *Gb
 	  }
-	bli_printm("b after second block gemm update",b,"%4.1f","");
+	//bli_printm("b after second block gemm update",b,"%4.1f","");
   } // End of for loop - i
 
   if(m_remainder)
@@ -15519,4 +15563,179 @@ static void trsm_AutXB_block_allSmallSizedMatrices_alpha_unitDiag(float *ptr_l, 
     } //numRows of A
     ///////////////////loop ends /////////////////////
 }
+// XA = B; A is upper triangular; No transpose; double presicion
+static err_t bli_dtrsm_small_XAuB
+     (
+       side_t  side,
+       obj_t*  AlphaObj,
+       obj_t*  a,
+       obj_t*  b,
+       cntx_t* cntx,
+       cntl_t* cntl
+     )
+{
+    int j,i = 0;
+    int blk_size = 4;
+    int m = bli_obj_length(b);
+    int n = bli_obj_width(b);
+
+    int csb = bli_obj_col_stride(b);
+    int csa = bli_obj_col_stride(a);
+
+    int rsa = bli_obj_row_stride(a);
+    int rsb = bli_obj_row_stride(b);
+
+    int isUnitDiag = bli_obj_has_unit_diag(a);
+
+    double alphaVal = *((double *)AlphaObj->buffer);
+    double *L = a->buffer;
+    double *B = b->buffer;
+
+    obj_t alpha, beta;
+    obj_t Ga, Gb, Gc;
+
+    bli_obj_create(BLIS_DOUBLE, 1, 1, 0, 0, &alpha );
+    bli_obj_create(BLIS_DOUBLE, 1, 1, 0, 0, &beta );
+
+    bli_setsc(-(1.0), 0.0, &alpha);
+    bli_setsc( (1.0), 0.0, &beta);
+
+    bli_obj_create_with_attached_buffer(BLIS_DOUBLE, n, blk_size, b->buffer, rsb, csb, &Ga);
+    bli_obj_create_with_attached_buffer(BLIS_DOUBLE, blk_size, blk_size, a->buffer, rsa, csa, &Gb);
+    bli_obj_create_with_attached_buffer(BLIS_DOUBLE, n, blk_size, b->buffer, rsb, csb, &Gc);
+
+    bli_obj_set_conjtrans( BLIS_NO_TRANSPOSE, &Ga );
+    bli_obj_set_conjtrans( BLIS_NO_TRANSPOSE, &Gb );
+    bli_obj_set_conjtrans( BLIS_NO_TRANSPOSE, &Gc );
+
+
+    Ga.buffer = (void*)(B + i*csb);
+
+    if(alphaVal != 1)
+    {
+	return BLIS_NOT_YET_IMPLEMENTED;
+    }
+    else
+    {
+	if(isUnitDiag)
+	{
+	    blis_dtrsm_microkernel_XAuB_unitdiag(L,B,m,n,rsa,rsb,csa,csb);
+	    fp_blis_dtrsm_microkernel = blis_dtrsm_microkernel_XAuB_unitdiag;
+	}
+	else
+	{
+		return BLIS_NOT_YET_IMPLEMENTED;
+	}
+    }
+
+    bli_setsc(1.0, 0.0, &beta);
+//bli_printm("b after 1st block solve", b, "%4.1f","");
+    for(j = i+blk_size; j+(blk_size-1) < n; j += blk_size)
+    {
+	Gb.buffer = (void*)(L+i+j*csa);
+	Gc.buffer = (void*)(B + j*csb);
+	bli_gemm_small(&alpha, &Ga, &Gb, &beta, &Gc, cntx, cntl);
+    }
+//bli_printm("b after gemm update", b, "%4.1f", "");
+    for(i = blk_size; i+(blk_size-1) < n; i += blk_size)
+    {
+	Ga.buffer = (void*)(B + i*csb);
+	fp_blis_dtrsm_microkernel((L+i*csa+i), (B+i*csb), m, n, rsa, rsb, csa, csb);
+	for(j = i+blk_size; j+blk_size-1 < n; j += blk_size)
+	{
+	    Gb.buffer = (void*)(L + i + j*csa);
+	    Gc.buffer = (void*)(B + j*csb);
+
+	    bli_gemm_small(&alpha, &Ga, &Gb, &beta, &Gc, cntx, cntl);
+//bli_printm("b after gemm update", b, "%4.1f", "");
+
+	}
+     }
+    return BLIS_SUCCESS;
+
+}
+
+static void blis_dtrsm_microkernel_XAuB_unitdiag(double *ptr_l,
+				double *ptr_b,
+				int numRows_b,
+				int numCols_b,
+				int rs_a,
+				int rs_b,
+				int cs_l,
+				int cs_b
+				)
+{
+    int j;
+    int cs_b_offset[2];
+    int blk_size = 4;
+    __m256d mat_b_col[4];
+    __m256d mat_a_col_rearr[10];
+    cs_b_offset[0] = (cs_b << 1);
+    cs_b_offset[1] = cs_b + cs_b_offset[0];
+
+    double *ptr_b_dup;
+
+    //read 4x4 block of A
+    //1st col
+    mat_a_col_rearr[0] = _mm256_broadcast_sd((double const *)(ptr_l +0));
+
+    //2nd col
+    ptr_l += cs_l;
+    mat_a_col_rearr[1] = _mm256_broadcast_sd((double const *)(ptr_l +0));
+    mat_a_col_rearr[2] = _mm256_broadcast_sd((double const *)(ptr_l +1));
+
+    //3rd col
+    ptr_l += cs_l;
+    mat_a_col_rearr[3] = _mm256_broadcast_sd((double const *)(ptr_l +0));
+    mat_a_col_rearr[4] = _mm256_broadcast_sd((double const *)(ptr_l +1));
+    mat_a_col_rearr[5] = _mm256_broadcast_sd((double const *)(ptr_l +2));
+
+    //4th col
+    ptr_l += cs_l;
+    mat_a_col_rearr[6] = _mm256_broadcast_sd((double const *)(ptr_l +0));
+    mat_a_col_rearr[7] = _mm256_broadcast_sd((double const *)(ptr_l +1));
+    mat_a_col_rearr[8] = _mm256_broadcast_sd((double const *)(ptr_l +2));
+    mat_a_col_rearr[9] = _mm256_broadcast_sd((double const *)(ptr_l +3));
+
+    for(j = 0; j+3 < numRows_b; j += 4)
+    {
+    ptr_b_dup = ptr_b;
+    //read 4x4 block of B
+    mat_b_col[0] = _mm256_loadu_pd((double const *)(ptr_b));
+    mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + cs_b));
+    mat_b_col[2] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0]));
+    mat_b_col[3] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1]));
+
+    //since alpha=1 and A is unit-diagonal, no need to process first col of B
+    //(Row 1):FMA operations
+    mat_b_col[1] = _mm256_fnmadd_pd(mat_a_col_rearr[1], mat_b_col[0], mat_b_col[1]);//d = c - (a*b)
+    mat_b_col[2] = _mm256_fnmadd_pd(mat_a_col_rearr[3], mat_b_col[0], mat_b_col[2]);//d = c - (a*b)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[6], mat_b_col[0], mat_b_col[3]);//d = c - (a*b)
+
+
+    //(Row2): FMA operations of b2 with elements of indices from (2, 0) uptill (7, 0)
+    mat_b_col[2] = _mm256_fnmadd_pd(mat_a_col_rearr[4], mat_b_col[1], mat_b_col[2]);//d = c - (a*b)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[7], mat_b_col[1], mat_b_col[3]);//d = c - (a*b)
+
+
+    //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[8], mat_b_col[2], mat_b_col[3]);//d = c - (a*b)
+    ptr_b += blk_size*rs_b;
+    //Store the computed B columns
+    _mm256_storeu_pd((double *)ptr_b_dup, mat_b_col[0]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_b_col[1]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_b_col[2]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_b_col[3]);
+    }
+}
+
+
+
+
+
+
+
+
+
+
 #endif
