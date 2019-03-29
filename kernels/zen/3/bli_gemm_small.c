@@ -44,15 +44,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define BLIS_ENABLE_PREFETCH
 #define F_SCRATCH_DIM (BLIS_SMALL_MATRIX_THRES * BLIS_SMALL_MATRIX_THRES)
-static float A_pack[F_SCRATCH_DIM]  __attribute__((aligned(64)));
 #define D_BLIS_SMALL_MATRIX_THRES (BLIS_SMALL_MATRIX_THRES / 2 )
 #define D_BLIS_SMALL_M_RECT_MATRIX_THRES (BLIS_SMALL_M_RECT_MATRIX_THRES / 2)
 #define D_BLIS_SMALL_K_RECT_MATRIX_THRES (BLIS_SMALL_K_RECT_MATRIX_THRES / 2)
 #define D_SCRATCH_DIM (D_BLIS_SMALL_MATRIX_THRES * D_BLIS_SMALL_MATRIX_THRES)
-static double D_A_pack[D_SCRATCH_DIM]  __attribute__((aligned(64)));
 #define BLIS_ATBN_M_THRES 40 // Threshold value of M for/below which small matrix code is called. 
 #define AT_MR 4 // The kernel dimension of the A transpose GEMM kernel.(AT_MR * NR).
-static err_t bli_sgemm_small
+err_t bli_sgemm_small
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -63,7 +61,7 @@ static err_t bli_sgemm_small
        cntl_t* cntl
      );
 
-static err_t bli_dgemm_small
+err_t bli_dgemm_small
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -74,7 +72,7 @@ static err_t bli_dgemm_small
        cntl_t* cntl
      );
 
-static err_t bli_sgemm_small_atbn
+err_t bli_sgemm_small_atbn
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -85,7 +83,7 @@ static err_t bli_sgemm_small_atbn
        cntl_t* cntl
      );
 
-static err_t bli_dgemm_small_atbn
+err_t bli_dgemm_small_atbn
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -114,13 +112,6 @@ err_t bli_gemm_small
 #ifdef BLIS_ENABLE_MULTITHREADING
     return BLIS_NOT_YET_IMPLEMENTED;
 #endif
-    //If any of m,k, n are zero, return success as there would be any computations happening.
-    //Since HPL application has most of the inputs zero adding the condition initially.	
-    if(!(bli_obj_length( c ) &&  bli_obj_width( c ) &&  bli_obj_width(a)))
-    {
-	    return BLIS_SUCCESS;
-    }
-
     // If alpha is zero, scale by beta and return.
     if (bli_obj_equals(alpha, &BLIS_ZERO))
     {
@@ -168,7 +159,7 @@ err_t bli_gemm_small
 };
 
 
-static err_t bli_sgemm_small
+err_t bli_sgemm_small
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -210,6 +201,8 @@ static err_t bli_sgemm_small
         __m256 ymm12, ymm13, ymm14, ymm15;
         __m256 ymm0, ymm1, ymm2, ymm3;
 
+	float A_pack[MR*K]  __attribute__((aligned(64)));
+
         int n_remainder; // If the N is non multiple of 3.(N%3)
         int m_remainder; // If the M is non multiple of 32.(M%32)
 
@@ -239,7 +232,7 @@ static err_t bli_sgemm_small
             tb_inc_row = ldb;
         }
 
-        if ((N <= 3) || ((MR * K) > F_SCRATCH_DIM))
+        if ((N <= 3))
         {
             required_packing_A = 0;
         }
@@ -1570,7 +1563,7 @@ static err_t bli_sgemm_small
 
 };
 
-static err_t bli_dgemm_small
+err_t bli_dgemm_small
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -1612,7 +1605,8 @@ static err_t bli_dgemm_small
         __m256d ymm8, ymm9, ymm10, ymm11;
         __m256d ymm12, ymm13, ymm14, ymm15;
         __m256d ymm0, ymm1, ymm2, ymm3;
-		__m256d ymm16, ymm17, ymm18, ymm19, ymm20;
+
+	double D_A_pack[D_MR*K]  __attribute__((aligned(64)));
 
         int n_remainder; // If the N is non multiple of 3.(N%3)
         int m_remainder; // If the M is non multiple of 16.(M%16)
@@ -1643,7 +1637,7 @@ static err_t bli_dgemm_small
             tb_inc_row = ldb;
         }
 
-        if ((N <= 4) || ((D_MR * K) > D_SCRATCH_DIM))
+        if ((N <= 3))
         {
             required_packing_A = 0;
         }
@@ -1696,10 +1690,7 @@ static err_t bli_dgemm_small
                 ymm13 = _mm256_setzero_pd();
                 ymm14 = _mm256_setzero_pd();
                 ymm15 = _mm256_setzero_pd();
-				ymm17 = _mm256_setzero_pd();
-				ymm18 = _mm256_setzero_pd();
-				ymm19 = _mm256_setzero_pd();
-				ymm20 = _mm256_setzero_pd();
+
                 for (k = 0; k < K; ++k)
                 {
                     // The inner loop broadcasts the B matrix data and
@@ -1708,7 +1699,6 @@ static err_t bli_dgemm_small
                     ymm0 = _mm256_broadcast_sd(tB + tb_inc_col * 0);
                     ymm1 = _mm256_broadcast_sd(tB + tb_inc_col * 1);
                     ymm2 = _mm256_broadcast_sd(tB + tb_inc_col * 2);
-					ymm16 = _mm256_broadcast_sd(tB + tb_inc_col * 3);
                     tB += tb_inc_row;
 
                     //broadcasted matrix B elements are multiplied
@@ -1721,7 +1711,6 @@ static err_t bli_dgemm_small
                     ymm8 = _mm256_fmadd_pd(ymm1, ymm3, ymm8);
                     //                    ymm12 += ymm2 * ymm3;
                     ymm12 = _mm256_fmadd_pd(ymm2, ymm3, ymm12);
-					ymm17 = _mm256_fmadd_pd(ymm16, ymm3, ymm17);
 
                     ymm3 = _mm256_loadu_pd(tA + 4);
                     _mm256_storeu_pd(tA_packed + 4, ymm3); // the packing of matrix A
@@ -1731,7 +1720,6 @@ static err_t bli_dgemm_small
                     ymm9 = _mm256_fmadd_pd(ymm1, ymm3, ymm9);
                     //                    ymm13 += ymm2 * ymm3;
                     ymm13 = _mm256_fmadd_pd(ymm2, ymm3, ymm13);
-					ymm18 = _mm256_fmadd_pd(ymm16, ymm3, ymm18);
 
                     ymm3 = _mm256_loadu_pd(tA + 8);
                     _mm256_storeu_pd(tA_packed + 8, ymm3); // the packing of matrix A
@@ -1742,7 +1730,6 @@ static err_t bli_dgemm_small
                     //                    ymm14 += ymm2 * ymm3;
                     ymm14 = _mm256_fmadd_pd(ymm2, ymm3, ymm14);
 
-					ymm19 = _mm256_fmadd_pd(ymm16, ymm3, ymm19);
                     ymm3 = _mm256_loadu_pd(tA + 12);
                     _mm256_storeu_pd(tA_packed + 12, ymm3); // the packing of matrix A
                                                             //                    ymm7 += ymm0 * ymm3;
@@ -1751,7 +1738,6 @@ static err_t bli_dgemm_small
                     ymm11 = _mm256_fmadd_pd(ymm1, ymm3, ymm11);
                     //                   ymm15 += ymm2 * ymm3;
                     ymm15 = _mm256_fmadd_pd(ymm2, ymm3, ymm15);
-					ymm20 = _mm256_fmadd_pd(ymm16, ymm3, ymm20);
 
                     tA += lda;
                     tA_packed += D_MR;
@@ -1773,10 +1759,6 @@ static err_t bli_dgemm_small
                 ymm13 = _mm256_mul_pd(ymm13, ymm0);
                 ymm14 = _mm256_mul_pd(ymm14, ymm0);
                 ymm15 = _mm256_mul_pd(ymm15, ymm0);
-				ymm17 = _mm256_mul_pd(ymm17, ymm0);
-				ymm18 = _mm256_mul_pd(ymm18, ymm0);
-				ymm19 = _mm256_mul_pd(ymm19, ymm0);
-				ymm20 = _mm256_mul_pd(ymm20, ymm0);
 
                 // multiply C by beta and accumulate col 1.
                 ymm2 = _mm256_loadu_pd(tC);
@@ -1821,28 +1803,15 @@ static err_t bli_dgemm_small
                 _mm256_storeu_pd(tC + 4, ymm13);
                 _mm256_storeu_pd(tC + 8, ymm14);
                 _mm256_storeu_pd(tC + 12, ymm15);
-				tC += ldc;
-				ymm2 = _mm256_loadu_pd(tC);
-				ymm17 = _mm256_fmadd_pd(ymm2, ymm1, ymm17);
-				ymm2 = _mm256_loadu_pd(tC + 4);
-				ymm18 = _mm256_fmadd_pd(ymm2, ymm1, ymm18);
-				ymm2 = _mm256_loadu_pd(tC + 8);
-				ymm19 = _mm256_fmadd_pd(ymm2, ymm1, ymm19);
-				ymm2 = _mm256_loadu_pd(tC + 12);
-				ymm20 = _mm256_fmadd_pd(ymm2, ymm1, ymm20);
-				_mm256_storeu_pd(tC, ymm17);
-				_mm256_storeu_pd(tC + 4, ymm18);
-				_mm256_storeu_pd(tC + 8, ymm19);
-				_mm256_storeu_pd(tC + 12, ymm20);
 
                 // modify the pointer arithematic to use packed A matrix.
-                col_idx_start = 4;
+                col_idx_start = NR;
                 tA_packed = D_A_pack;
                 row_idx_packed = 0;
                 lda_packed = D_MR;
             }
             // Process NR columns of C matrix at a time.
-            for (col_idx = col_idx_start; (col_idx + (4 - 1)) < N; col_idx += 4)
+            for (col_idx = col_idx_start; (col_idx + (NR - 1)) < N; col_idx += NR)
             {
                 //pointer math to point to proper memory
                 tC = C + ldc * col_idx + row_idx;
@@ -1870,10 +1839,6 @@ static err_t bli_dgemm_small
                 ymm13 = _mm256_setzero_pd();
                 ymm14 = _mm256_setzero_pd();
                 ymm15 = _mm256_setzero_pd();
-				ymm17 = _mm256_setzero_pd();
-				ymm18 = _mm256_setzero_pd();
-				ymm19 = _mm256_setzero_pd();
-				ymm20 = _mm256_setzero_pd();
 
                 for (k = 0; k < K; ++k)
                 {
@@ -1883,7 +1848,6 @@ static err_t bli_dgemm_small
                     ymm0 = _mm256_broadcast_sd(tB + tb_inc_col * 0);
                     ymm1 = _mm256_broadcast_sd(tB + tb_inc_col * 1);
                     ymm2 = _mm256_broadcast_sd(tB + tb_inc_col * 2);
-					ymm16 = _mm256_broadcast_sd(tB + tb_inc_col * 3);
                     tB += tb_inc_row;
 
                     //broadcasted matrix B elements are multiplied
@@ -1895,7 +1859,6 @@ static err_t bli_dgemm_small
                     ymm8 = _mm256_fmadd_pd(ymm1, ymm3, ymm8);
                     //                    ymm12 += ymm2 * ymm3;
                     ymm12 = _mm256_fmadd_pd(ymm2, ymm3, ymm12);
-					ymm17 = _mm256_fmadd_pd(ymm16, ymm3, ymm17);
 
                     ymm3 = _mm256_loadu_pd(tA + 4);
                     //                    ymm5 += ymm0 * ymm3;
@@ -1904,7 +1867,6 @@ static err_t bli_dgemm_small
                     ymm9 = _mm256_fmadd_pd(ymm1, ymm3, ymm9);
                     //                    ymm13 += ymm2 * ymm3;
                     ymm13 = _mm256_fmadd_pd(ymm2, ymm3, ymm13);
-					ymm18 = _mm256_fmadd_pd(ymm16, ymm3, ymm18);
 
                     ymm3 = _mm256_loadu_pd(tA + 8);
                     //                   ymm6 += ymm0 * ymm3;
@@ -1914,7 +1876,6 @@ static err_t bli_dgemm_small
                     //                    ymm14 += ymm2 * ymm3;
                     ymm14 = _mm256_fmadd_pd(ymm2, ymm3, ymm14);
 
-					ymm19 = _mm256_fmadd_pd(ymm16, ymm3, ymm19);
                     ymm3 = _mm256_loadu_pd(tA + 12);
                     //                    ymm7 += ymm0 * ymm3;
                     ymm7 = _mm256_fmadd_pd(ymm0, ymm3, ymm7);
@@ -1923,7 +1884,6 @@ static err_t bli_dgemm_small
                     //                   ymm15 += ymm2 * ymm3;
                     ymm15 = _mm256_fmadd_pd(ymm2, ymm3, ymm15);
 
-					ymm20 = _mm256_fmadd_pd(ymm16, ymm3, ymm20);
                     tA += lda_packed;
                 }
                 // alpha, beta multiplication.
@@ -1943,10 +1903,6 @@ static err_t bli_dgemm_small
                 ymm13 = _mm256_mul_pd(ymm13, ymm0);
                 ymm14 = _mm256_mul_pd(ymm14, ymm0);
                 ymm15 = _mm256_mul_pd(ymm15, ymm0);
-				ymm17 = _mm256_mul_pd(ymm17, ymm0);
-				ymm18 = _mm256_mul_pd(ymm18, ymm0);
-				ymm19 = _mm256_mul_pd(ymm19, ymm0);
-				ymm20 = _mm256_mul_pd(ymm20, ymm0);
 
                 // multiply C by beta and accumulate col 1.
                 ymm2 = _mm256_loadu_pd(tC);
@@ -1991,144 +1947,10 @@ static err_t bli_dgemm_small
                 _mm256_storeu_pd(tC + 4, ymm13);
                 _mm256_storeu_pd(tC + 8, ymm14);
                 _mm256_storeu_pd(tC + 12, ymm15);
-				
-				tC += ldc;
-				ymm2 = _mm256_loadu_pd(tC);
-				ymm17 = _mm256_fmadd_pd(ymm2, ymm1, ymm17);
-				ymm2 = _mm256_loadu_pd(tC + 4);
-				ymm18 = _mm256_fmadd_pd(ymm2, ymm1, ymm18);
-				ymm2 = _mm256_loadu_pd(tC + 8);
-				ymm19 = _mm256_fmadd_pd(ymm2, ymm1, ymm19);
-				ymm2 = _mm256_loadu_pd(tC + 12);
-				ymm20 = _mm256_fmadd_pd(ymm2, ymm1, ymm20);
-				_mm256_storeu_pd(tC, ymm17);
-				_mm256_storeu_pd(tC + 4, ymm18);
-				_mm256_storeu_pd(tC + 8, ymm19);
-				_mm256_storeu_pd(tC + 12, ymm20);
 
             }
             n_remainder = N - col_idx;
-            // if the N is not multiple of 4.
-            // handling edge case.
-			if (n_remainder == 3)
-            {
-                //pointer math to point to proper memory
-                tC = C + ldc * col_idx + row_idx;
-                tB = B + tb_inc_col * col_idx;
-                tA = A + row_idx;
 
-                // clear scratch registers.
-				ymm4 = _mm256_setzero_pd();
-				ymm5 = _mm256_setzero_pd();
-				ymm6 = _mm256_setzero_pd();
-				ymm7 = _mm256_setzero_pd();
-                ymm8 = _mm256_setzero_pd();
-                ymm9 = _mm256_setzero_pd();
-                ymm10 = _mm256_setzero_pd();
-                ymm11 = _mm256_setzero_pd();
-                ymm12 = _mm256_setzero_pd();
-                ymm13 = _mm256_setzero_pd();
-                ymm14 = _mm256_setzero_pd();
-                ymm15 = _mm256_setzero_pd();
-
-                for (k = 0; k < K; ++k)
-                {
-                    // The inner loop broadcasts the B matrix data and
-                    // multiplies it with the A matrix.
-                    ymm0 = _mm256_broadcast_sd(tB + tb_inc_col * 0);
-                    ymm1 = _mm256_broadcast_sd(tB + tb_inc_col * 1);
-					ymm2 = _mm256_broadcast_sd(tB + tb_inc_col * 2);
-                    tB += tb_inc_row;
-
-                    //broadcasted matrix B elements are multiplied
-                    //with matrix A columns.
-                    ymm3 = _mm256_loadu_pd(tA);
-					ymm4 = _mm256_fmadd_pd(ymm0, ymm3, ymm4);
-                    ymm8 = _mm256_fmadd_pd(ymm1, ymm3, ymm8);
-                    ymm12 = _mm256_fmadd_pd(ymm2, ymm3, ymm12);
-
-                    ymm3 = _mm256_loadu_pd(tA + 4);
-					ymm5 = _mm256_fmadd_pd(ymm0, ymm3, ymm5);	
-                    ymm9 = _mm256_fmadd_pd(ymm1, ymm3, ymm9);
-                    ymm13 = _mm256_fmadd_pd(ymm2, ymm3, ymm13);
-
-                    ymm3 = _mm256_loadu_pd(tA + 8);
-					ymm6 = _mm256_fmadd_pd(ymm0, ymm3, ymm6);
-                    ymm10 = _mm256_fmadd_pd(ymm1, ymm3, ymm10);
-                    ymm14 = _mm256_fmadd_pd(ymm2, ymm3, ymm14);
-
-                    ymm3 = _mm256_loadu_pd(tA + 12);
-					ymm7 = _mm256_fmadd_pd(ymm0, ymm3, ymm7);
-                    ymm11 = _mm256_fmadd_pd(ymm1, ymm3, ymm11);
-                    ymm15 = _mm256_fmadd_pd(ymm2, ymm3, ymm15);
-
-                    tA += lda;
-
-                }
-                // alpha, beta multiplication.
-                ymm0 = _mm256_broadcast_sd(alpha_cast);
-                ymm1 = _mm256_broadcast_sd(beta_cast);
-
-                //multiply A*B by alpha.
-				ymm4 = _mm256_mul_pd(ymm4, ymm0);
-                ymm5 = _mm256_mul_pd(ymm5, ymm0);
-                ymm6 = _mm256_mul_pd(ymm6, ymm0);
-                ymm7 = _mm256_mul_pd(ymm7, ymm0);
-                ymm8 = _mm256_mul_pd(ymm8, ymm0);
-                ymm9 = _mm256_mul_pd(ymm9, ymm0);
-                ymm10 = _mm256_mul_pd(ymm10, ymm0);
-                ymm11 = _mm256_mul_pd(ymm11, ymm0);
-                ymm12 = _mm256_mul_pd(ymm12, ymm0);
-                ymm13 = _mm256_mul_pd(ymm13, ymm0);
-                ymm14 = _mm256_mul_pd(ymm14, ymm0);
-                ymm15 = _mm256_mul_pd(ymm15, ymm0);
-
-                // multiply C by beta and accumulate col 1.
-                ymm2 = _mm256_loadu_pd(tC);
-                ymm4 = _mm256_fmadd_pd(ymm2, ymm1, ymm4);
-                ymm2 = _mm256_loadu_pd(tC + 4);
-                ymm5 = _mm256_fmadd_pd(ymm2, ymm1, ymm5);
-                ymm2 = _mm256_loadu_pd(tC + 8);
-                ymm6 = _mm256_fmadd_pd(ymm2, ymm1, ymm6);
-                ymm2 = _mm256_loadu_pd(tC + 12);
-                ymm7 = _mm256_fmadd_pd(ymm2, ymm1, ymm7);
-                _mm256_storeu_pd(tC, ymm4);
-                _mm256_storeu_pd(tC + 4, ymm5);
-                _mm256_storeu_pd(tC + 8, ymm6);
-                _mm256_storeu_pd(tC + 12, ymm7);
-
-                // multiply C by beta and accumulate, col 2.
-                tC += ldc;
-                ymm2 = _mm256_loadu_pd(tC + 0);
-                ymm8 = _mm256_fmadd_pd(ymm2, ymm1, ymm8);
-                ymm2 = _mm256_loadu_pd(tC + 4);
-                ymm9 = _mm256_fmadd_pd(ymm2, ymm1, ymm9);
-                ymm2 = _mm256_loadu_pd(tC + 8);
-                ymm10 = _mm256_fmadd_pd(ymm2, ymm1, ymm10);
-                ymm2 = _mm256_loadu_pd(tC + 12);
-                ymm11 = _mm256_fmadd_pd(ymm2, ymm1, ymm11);
-                _mm256_storeu_pd(tC + 0, ymm8);
-                _mm256_storeu_pd(tC + 4, ymm9);
-                _mm256_storeu_pd(tC + 8, ymm10);
-                _mm256_storeu_pd(tC + 12, ymm11);
-
-                // multiply C by beta and accumulate, col 3.
-                tC += ldc;
-                ymm2 = _mm256_loadu_pd(tC);
-                ymm12 = _mm256_fmadd_pd(ymm2, ymm1, ymm12);
-                ymm2 = _mm256_loadu_pd(tC + 4);
-                ymm13 = _mm256_fmadd_pd(ymm2, ymm1, ymm13);
-                ymm2 = _mm256_loadu_pd(tC + 8);
-                ymm14 = _mm256_fmadd_pd(ymm2, ymm1, ymm14);
-                ymm2 = _mm256_loadu_pd(tC + 12);
-                ymm15 = _mm256_fmadd_pd(ymm2, ymm1, ymm15);
-                _mm256_storeu_pd(tC, ymm12);
-                _mm256_storeu_pd(tC + 4, ymm13);
-                _mm256_storeu_pd(tC + 8, ymm14);
-                _mm256_storeu_pd(tC + 12, ymm15);
-
-                col_idx += 3;
-            }
             // if the N is not multiple of 3.
             // handling edge case.
             if (n_remainder == 2)
@@ -2136,7 +1958,7 @@ static err_t bli_dgemm_small
                 //pointer math to point to proper memory
                 tC = C + ldc * col_idx + row_idx;
                 tB = B + tb_inc_col * col_idx;
-                tA = A + row_idx;
+                tA = tA_packed + row_idx_packed;
 
                 // clear scratch registers.
                 ymm8 = _mm256_setzero_pd();
@@ -2174,7 +1996,7 @@ static err_t bli_dgemm_small
                     ymm11 = _mm256_fmadd_pd(ymm0, ymm3, ymm11);
                     ymm15 = _mm256_fmadd_pd(ymm1, ymm3, ymm15);
 
-                    tA += lda;
+                    tA += lda_packed;
 
                 }
                 // alpha, beta multiplication.
@@ -2221,7 +2043,6 @@ static err_t bli_dgemm_small
                 _mm256_storeu_pd(tC + 12, ymm15);
 
                 col_idx += 2;
-				n_remainder -= 2;
             }
             // if the N is not multiple of 3.
             // handling edge case.
@@ -2230,7 +2051,7 @@ static err_t bli_dgemm_small
                 //pointer math to point to proper memory
                 tC = C + ldc * col_idx + row_idx;
                 tB = B + tb_inc_col * col_idx;
-                tA = A + row_idx;
+                tA = tA_packed + row_idx_packed;
 
                 // clear scratch registers.
                 ymm12 = _mm256_setzero_pd();
@@ -2259,7 +2080,7 @@ static err_t bli_dgemm_small
                     ymm3 = _mm256_loadu_pd(tA + 12);
                     ymm15 = _mm256_fmadd_pd(ymm0, ymm3, ymm15);
 
-                    tA += lda;
+                    tA += lda_packed;
 
                 }
                 // alpha, beta multiplication.
@@ -2295,7 +2116,7 @@ static err_t bli_dgemm_small
         {
             m_remainder -= 12;
 
-            for (col_idx = 0; (col_idx + 2) < N; col_idx += 4)
+            for (col_idx = 0; (col_idx + 2) < N; col_idx += 3)
             {
                 //pointer math to point to proper memory
                 tC = C + ldc * col_idx + row_idx;
@@ -2312,9 +2133,6 @@ static err_t bli_dgemm_small
                 ymm12 = _mm256_setzero_pd();
                 ymm13 = _mm256_setzero_pd();
                 ymm14 = _mm256_setzero_pd();
-				ymm17 = _mm256_setzero_pd();
-				ymm18 = _mm256_setzero_pd();
-				ymm19 = _mm256_setzero_pd();
 
                 for (k = 0; k < K; ++k)
                 {
@@ -2323,7 +2141,6 @@ static err_t bli_dgemm_small
                     ymm0 = _mm256_broadcast_sd(tB + tb_inc_col * 0);
                     ymm1 = _mm256_broadcast_sd(tB + tb_inc_col * 1);
                     ymm2 = _mm256_broadcast_sd(tB + tb_inc_col * 2);
-					ymm16 = _mm256_broadcast_sd(tB + tb_inc_col * 3);
                     tB += tb_inc_row;
 
                     //broadcasted matrix B elements are multiplied
@@ -2335,7 +2152,6 @@ static err_t bli_dgemm_small
                     ymm8 = _mm256_fmadd_pd(ymm1, ymm3, ymm8);
                     //                    ymm12 += ymm2 * ymm3;
                     ymm12 = _mm256_fmadd_pd(ymm2, ymm3, ymm12);
-					ymm17 = _mm256_fmadd_pd(ymm16, ymm3, ymm17);
 
                     ymm3 = _mm256_loadu_pd(tA + 4);
                     //                    ymm5 += ymm0 * ymm3;
@@ -2344,7 +2160,6 @@ static err_t bli_dgemm_small
                     ymm9 = _mm256_fmadd_pd(ymm1, ymm3, ymm9);
                     //                    ymm13 += ymm2 * ymm3;
                     ymm13 = _mm256_fmadd_pd(ymm2, ymm3, ymm13);
-					ymm18 = _mm256_fmadd_pd(ymm16, ymm3, ymm18);
 
                     ymm3 = _mm256_loadu_pd(tA + 8);
                     //                   ymm6 += ymm0 * ymm3;
@@ -2353,7 +2168,6 @@ static err_t bli_dgemm_small
                     ymm10 = _mm256_fmadd_pd(ymm1, ymm3, ymm10);
                     //                    ymm14 += ymm2 * ymm3;
                     ymm14 = _mm256_fmadd_pd(ymm2, ymm3, ymm14);
-					ymm19 = _mm256_fmadd_pd(ymm16, ymm3, ymm19);
 
                     tA += lda;
                 }
@@ -2371,9 +2185,6 @@ static err_t bli_dgemm_small
                 ymm12 = _mm256_mul_pd(ymm12, ymm0);
                 ymm13 = _mm256_mul_pd(ymm13, ymm0);
                 ymm14 = _mm256_mul_pd(ymm14, ymm0);
-				ymm17 = _mm256_mul_pd(ymm17, ymm0);
-				ymm18 = _mm256_mul_pd(ymm18, ymm0);
-				ymm19 = _mm256_mul_pd(ymm19, ymm0);
 
                 // multiply C by beta and accumulate.
                 ymm2 = _mm256_loadu_pd(tC);
@@ -2409,120 +2220,9 @@ static err_t bli_dgemm_small
                 _mm256_storeu_pd(tC, ymm12);
                 _mm256_storeu_pd(tC + 4, ymm13);
                 _mm256_storeu_pd(tC + 8, ymm14);
-				// multiply C by beta and accumulate, col 4.
-				tC += ldc;
-				ymm2 = _mm256_loadu_pd(tC);
-				ymm17 = _mm256_fmadd_pd(ymm2, ymm1, ymm17);
-				ymm2 = _mm256_loadu_pd(tC + 4);
-				ymm18 = _mm256_fmadd_pd(ymm2, ymm1, ymm18);
-				ymm2 = _mm256_loadu_pd(tC + 8);
-				ymm19 = _mm256_fmadd_pd(ymm2, ymm1, ymm19);
-				_mm256_storeu_pd(tC, ymm17);
-				_mm256_storeu_pd(tC + 4, ymm18);
-				_mm256_storeu_pd(tC + 8, ymm19);
 
             }
             n_remainder = N - col_idx;
-			if (n_remainder == 3)
-            {
-                //pointer math to point to proper memory
-                tC = C + ldc * col_idx + row_idx;
-                tB = B + tb_inc_col * col_idx;
-                tA = A + row_idx;
-
-                // clear scratch registers.
-				ymm4 = _mm256_setzero_pd();
-				ymm5 = _mm256_setzero_pd();
-				ymm6 = _mm256_setzero_pd();
-                ymm8 = _mm256_setzero_pd();
-                ymm9 = _mm256_setzero_pd();
-                ymm10 = _mm256_setzero_pd();
-                ymm12 = _mm256_setzero_pd();
-                ymm13 = _mm256_setzero_pd();
-                ymm14 = _mm256_setzero_pd();
-
-                for (k = 0; k < K; ++k)
-                {
-                    // The inner loop broadcasts the B matrix data and
-                    // multiplies it with the A matrix.
-                    ymm0 = _mm256_broadcast_sd(tB + tb_inc_col * 0);
-                    ymm1 = _mm256_broadcast_sd(tB + tb_inc_col * 1);
-					ymm2 = _mm256_broadcast_sd(tB + tb_inc_col * 2);
-                    tB += tb_inc_row;
-
-                    //broadcasted matrix B elements are multiplied
-                    //with matrix A columns.
-                    ymm3 = _mm256_loadu_pd(tA);
-					ymm4 = _mm256_fmadd_pd(ymm0, ymm3, ymm4);
-                    ymm8 = _mm256_fmadd_pd(ymm1, ymm3, ymm8);
-                    ymm12 = _mm256_fmadd_pd(ymm2, ymm3, ymm12);
-
-                    ymm3 = _mm256_loadu_pd(tA + 4);
-					ymm5 = _mm256_fmadd_pd(ymm0, ymm3, ymm5);
-                    ymm9 = _mm256_fmadd_pd(ymm1, ymm3, ymm9);
-                    ymm13 = _mm256_fmadd_pd(ymm2, ymm3, ymm13);
-
-                    ymm3 = _mm256_loadu_pd(tA + 8);
-					ymm6 = _mm256_fmadd_pd(ymm0, ymm3, ymm6);
-                    ymm10 = _mm256_fmadd_pd(ymm1, ymm3, ymm10);
-                    ymm14 = _mm256_fmadd_pd(ymm2, ymm3, ymm14);
-
-                    tA += lda;
-
-                }
-                // alpha, beta multiplication.
-                ymm0 = _mm256_broadcast_sd(alpha_cast);
-                ymm1 = _mm256_broadcast_sd(beta_cast);
-
-                //multiply A*B by alpha.
-				ymm4 = _mm256_mul_pd(ymm4, ymm0);
-				ymm5 = _mm256_mul_pd(ymm5, ymm0);
-				ymm6 = _mm256_mul_pd(ymm6, ymm0);
-                ymm8 = _mm256_mul_pd(ymm8, ymm0);
-                ymm9 = _mm256_mul_pd(ymm9, ymm0);
-                ymm10 = _mm256_mul_pd(ymm10, ymm0);
-                ymm12 = _mm256_mul_pd(ymm12, ymm0);
-                ymm13 = _mm256_mul_pd(ymm13, ymm0);
-                ymm14 = _mm256_mul_pd(ymm14, ymm0);
-
-				// multiply C by beta and accumulate.
-				ymm2 = _mm256_loadu_pd(tC);
-				ymm4 = _mm256_fmadd_pd(ymm2, ymm1, ymm4);
-				ymm2 = _mm256_loadu_pd(tC + 4);
-				ymm5 = _mm256_fmadd_pd(ymm2, ymm1, ymm5);
-				ymm2 = _mm256_loadu_pd(tC + 8);
-				ymm6 = _mm256_fmadd_pd(ymm2, ymm1, ymm6);
-				_mm256_storeu_pd(tC, ymm4);
-				_mm256_storeu_pd(tC + 4, ymm5);
-				_mm256_storeu_pd(tC + 8, ymm6);
-
-				// multiply C by beta and accumulate.
-				tC += ldc;
-                ymm2 = _mm256_loadu_pd(tC + 0);
-                ymm8 = _mm256_fmadd_pd(ymm2, ymm1, ymm8);
-                ymm2 = _mm256_loadu_pd(tC + 4);
-                ymm9 = _mm256_fmadd_pd(ymm2, ymm1, ymm9);
-                ymm2 = _mm256_loadu_pd(tC + 8);
-                ymm10 = _mm256_fmadd_pd(ymm2, ymm1, ymm10);
-                _mm256_storeu_pd(tC + 0, ymm8);
-                _mm256_storeu_pd(tC + 4, ymm9);
-                _mm256_storeu_pd(tC + 8, ymm10);
-
-                // multiply C by beta and accumulate.
-                tC += ldc;
-                ymm2 = _mm256_loadu_pd(tC);
-                ymm12 = _mm256_fmadd_pd(ymm2, ymm1, ymm12);
-                ymm2 = _mm256_loadu_pd(tC + 4);
-                ymm13 = _mm256_fmadd_pd(ymm2, ymm1, ymm13);
-                ymm2 = _mm256_loadu_pd(tC + 8);
-                ymm14 = _mm256_fmadd_pd(ymm2, ymm1, ymm14);
-                _mm256_storeu_pd(tC, ymm12);
-                _mm256_storeu_pd(tC + 4, ymm13);
-                _mm256_storeu_pd(tC + 8, ymm14);
-
-                col_idx += 3;
-            }
-            
             // if the N is not multiple of 3.
             // handling edge case.
             if (n_remainder == 2)
@@ -2863,7 +2563,7 @@ static err_t bli_dgemm_small
             //printf("HERE\n");
             m_remainder -= 4;
 
-            for (col_idx = 0; (col_idx + 2) < N; col_idx += 4)
+            for (col_idx = 0; (col_idx + 2) < N; col_idx += 3)
             {
                 //pointer math to point to proper memory
                 tC = C + ldc * col_idx + row_idx;
@@ -2874,53 +2574,7 @@ static err_t bli_dgemm_small
                 ymm4 = _mm256_setzero_pd();
                 ymm5 = _mm256_setzero_pd();
                 ymm6 = _mm256_setzero_pd();
-				ymm17 = _mm256_setzero_pd();
-                for (k = 0; k < K; ++k)
-                {
-                    ymm0 = _mm256_broadcast_sd(tB + tb_inc_col * 0);
-                    ymm1 = _mm256_broadcast_sd(tB + tb_inc_col * 1);
-                    ymm2 = _mm256_broadcast_sd(tB + tb_inc_col * 2);
-					ymm16 = _mm256_broadcast_sd(tB + tb_inc_col * 3);
-                    tB += tb_inc_row;
 
-                    ymm3 = _mm256_loadu_pd(tA);
-                    ymm4 = _mm256_fmadd_pd(ymm0, ymm3, ymm4);
-                    ymm5 = _mm256_fmadd_pd(ymm1, ymm3, ymm5);
-                    ymm6 = _mm256_fmadd_pd(ymm2, ymm3, ymm6);
-					ymm17 = _mm256_fmadd_pd(ymm16, ymm3, ymm17);
-                    tA += lda;
-                }
-                ymm0 = _mm256_broadcast_sd(alpha_cast);
-                ymm1 = _mm256_broadcast_sd(beta_cast);
-                ymm4 = _mm256_mul_pd(ymm4, ymm0);
-                ymm5 = _mm256_mul_pd(ymm5, ymm0);
-                ymm6 = _mm256_mul_pd(ymm6, ymm0);
-				ymm17 = _mm256_mul_pd(ymm17, ymm0);
-                ymm2 = _mm256_loadu_pd(tC);
-                ymm4 = _mm256_fmadd_pd(ymm2, ymm1, ymm4);
-                _mm256_storeu_pd(tC, ymm4);
-                tC += ldc;
-                ymm2 = _mm256_loadu_pd(tC);
-                ymm5 = _mm256_fmadd_pd(ymm2, ymm1, ymm5);
-                _mm256_storeu_pd(tC, ymm5);
-                tC += ldc;
-                ymm2 = _mm256_loadu_pd(tC);
-                ymm6 = _mm256_fmadd_pd(ymm2, ymm1, ymm6);
-                _mm256_storeu_pd(tC, ymm6);
-				tC += ldc;
-				ymm2 = _mm256_loadu_pd(tC);
-				ymm17 = _mm256_fmadd_pd(ymm2, ymm1, ymm17);
-				_mm256_storeu_pd(tC, ymm17);
-            }
-            n_remainder = N - col_idx;
-            if (n_remainder == 3)
-            {
-                tC = C + ldc * col_idx + row_idx;
-                tB = B + tb_inc_col * col_idx;
-                tA = A + row_idx;
-                ymm4 = _mm256_setzero_pd();
-                ymm5 = _mm256_setzero_pd();
-				ymm6 = _mm256_setzero_pd();
                 for (k = 0; k < K; ++k)
                 {
                     // The inner loop broadcasts the B matrix data and
@@ -2964,9 +2618,8 @@ static err_t bli_dgemm_small
                 ymm2 = _mm256_loadu_pd(tC);
                 ymm6 = _mm256_fmadd_pd(ymm2, ymm1, ymm6);
                 _mm256_storeu_pd(tC, ymm6);
-				col_idx += 3;
             }
-            
+            n_remainder = N - col_idx;
             // if the N is not multiple of 3.
             // handling edge case.
             if (n_remainder == 2)
@@ -3065,7 +2718,7 @@ static err_t bli_dgemm_small
         {
             double f_temp[8];
 
-	   for (col_idx = 0; (col_idx + 3) < N; col_idx += 4)
+            for (col_idx = 0; (col_idx + 2) < N; col_idx += 3)
             {
                 //pointer math to point to proper memory
                 tC = C + ldc * col_idx + row_idx;
@@ -3076,7 +2729,6 @@ static err_t bli_dgemm_small
                 ymm5 = _mm256_setzero_pd();
                 ymm7 = _mm256_setzero_pd();
                 ymm9 = _mm256_setzero_pd();
-		   ymm10 = _mm256_setzero_pd();
 
                 for (k = 0; k < (K - 1); ++k)
                 {
@@ -3085,7 +2737,6 @@ static err_t bli_dgemm_small
                     ymm0 = _mm256_broadcast_sd(tB + tb_inc_col * 0);
                     ymm1 = _mm256_broadcast_sd(tB + tb_inc_col * 1);
                     ymm2 = _mm256_broadcast_sd(tB + tb_inc_col * 2);
-			   ymm16 = _mm256_broadcast_sd(tB + tb_inc_col * 3);
                     tB += tb_inc_row;
 
                     //broadcasted matrix B elements are multiplied
@@ -3094,7 +2745,6 @@ static err_t bli_dgemm_small
                     ymm5 = _mm256_fmadd_pd(ymm0, ymm3, ymm5);
                     ymm7 = _mm256_fmadd_pd(ymm1, ymm3, ymm7);
                     ymm9 = _mm256_fmadd_pd(ymm2, ymm3, ymm9);
-			   ymm10 = _mm256_fmadd_pd(ymm16, ymm3, ymm10);
 
                     tA += lda;
                 }
@@ -3102,7 +2752,6 @@ static err_t bli_dgemm_small
                 ymm0 = _mm256_broadcast_sd(tB + tb_inc_col * 0);
                 ymm1 = _mm256_broadcast_sd(tB + tb_inc_col * 1);
                 ymm2 = _mm256_broadcast_sd(tB + tb_inc_col * 2);
-		   ymm16 = _mm256_broadcast_sd(tB + tb_inc_col * 3);
                 tB += tb_inc_row;
 
                 for (int i = 0; i < m_remainder; i++)
@@ -3113,7 +2762,6 @@ static err_t bli_dgemm_small
                 ymm5 = _mm256_fmadd_pd(ymm0, ymm3, ymm5);
                 ymm7 = _mm256_fmadd_pd(ymm1, ymm3, ymm7);
                 ymm9 = _mm256_fmadd_pd(ymm2, ymm3, ymm9);
-		   ymm10 = _mm256_fmadd_pd(ymm16, ymm3, ymm10);
 
                 ymm0 = _mm256_broadcast_sd(alpha_cast);
                 ymm1 = _mm256_broadcast_sd(beta_cast);
@@ -3122,7 +2770,7 @@ static err_t bli_dgemm_small
                 ymm5 = _mm256_mul_pd(ymm5, ymm0);
                 ymm7 = _mm256_mul_pd(ymm7, ymm0);
                 ymm9 = _mm256_mul_pd(ymm9, ymm0);
-		   ymm10 = _mm256_mul_pd(ymm10, ymm0);
+
 
                 for (int i = 0; i < m_remainder; i++)
                 {
@@ -3161,106 +2809,8 @@ static err_t bli_dgemm_small
                 {
                     tC[i] = f_temp[i];
                 }
-		   tC += ldc;
-		   for (int i = 0; i < m_remainder; i++)
-		   {
-			   f_temp[i] = tC[i];
             }
-		   ymm2 = _mm256_loadu_pd(f_temp);
-		   ymm10 = _mm256_fmadd_pd(ymm2, ymm1, ymm10);
-		   _mm256_storeu_pd(f_temp, ymm10);
-		   for (int i = 0; i < m_remainder; i++)
-		   {
-			   tC[i] = f_temp[i];
-		   }
-	   }
             n_remainder = N - col_idx;
-	   if (n_remainder == 3)
-	   {
-		   //pointer math to point to proper memory
-		   tC = C + ldc * col_idx + row_idx;
-		   tB = B + tb_inc_col * col_idx;
-		   tA = A + row_idx;
-
-		   ymm5 = _mm256_setzero_pd();
-		   ymm7 = _mm256_setzero_pd();
-		   ymm9 = _mm256_setzero_pd();
-		   for (k = 0; k < (K - 1); ++k)
-		   {
-			   // The inner loop broadcasts the B matrix data and
-			   // multiplies it with the A matrix.
-			   ymm0 = _mm256_broadcast_sd(tB + tb_inc_col * 0);
-			   ymm1 = _mm256_broadcast_sd(tB + tb_inc_col * 1);
-			   ymm2 = _mm256_broadcast_sd(tB + tb_inc_col * 2);
-			   tB += tb_inc_row;
-
-			   ymm3 = _mm256_loadu_pd(tA);
-			   ymm5 = _mm256_fmadd_pd(ymm0, ymm3, ymm5);
-			   ymm7 = _mm256_fmadd_pd(ymm1, ymm3, ymm7);
-			   ymm9 = _mm256_fmadd_pd(ymm2, ymm3, ymm9);
-			   tA += lda;
-		   }
-
-		   ymm0 = _mm256_broadcast_sd(tB + tb_inc_col * 0);
-		   ymm1 = _mm256_broadcast_sd(tB + tb_inc_col * 1);
-		   ymm2 = _mm256_broadcast_sd(tB + tb_inc_col * 2);
-		   tB += tb_inc_row;
-
-		   for (int i = 0; i < m_remainder; i++)
-		   {
-			   f_temp[i] = tA[i];
-		   }
-		   ymm3 = _mm256_loadu_pd(f_temp);
-		   ymm5 = _mm256_fmadd_pd(ymm0, ymm3, ymm5);
-		   ymm7 = _mm256_fmadd_pd(ymm1, ymm3, ymm7);
-		   ymm9 = _mm256_fmadd_pd(ymm2, ymm3, ymm9);
-
-		   ymm0 = _mm256_broadcast_sd(alpha_cast);
-		   ymm1 = _mm256_broadcast_sd(beta_cast);
-
-		   ymm5 = _mm256_mul_pd(ymm5, ymm0);
-		   ymm7 = _mm256_mul_pd(ymm7, ymm0);
-		   ymm9 = _mm256_mul_pd(ymm9, ymm0);
-
-		   for (int i = 0; i < m_remainder; i++)
-		   {
-			   f_temp[i] = tC[i];
-		   }
-		   ymm2 = _mm256_loadu_pd(f_temp);
-		   ymm5 = _mm256_fmadd_pd(ymm2, ymm1, ymm5);
-		   _mm256_storeu_pd(f_temp, ymm5);
-		   for (int i = 0; i < m_remainder; i++)
-		   {
-			   tC[i] = f_temp[i];
-		   }
-
-		   tC += ldc;
-		   for (int i = 0; i < m_remainder; i++)
-		   {
-			   f_temp[i] = tC[i];
-		   }
-		   ymm2 = _mm256_loadu_pd(f_temp);
-		   ymm7 = _mm256_fmadd_pd(ymm2, ymm1, ymm7);
-		   _mm256_storeu_pd(f_temp, ymm7);
-		   for (int i = 0; i < m_remainder; i++)
-		   {
-			   tC[i] = f_temp[i];
-		   }
-
-		   tC += ldc;
-		   for (int i = 0; i < m_remainder; i++)
-		   {
-			   f_temp[i] = tC[i];
-		   }
-		   ymm2 = _mm256_loadu_pd(f_temp);
-		   ymm9 = _mm256_fmadd_pd(ymm2, ymm1, ymm9);
-		   _mm256_storeu_pd(f_temp, ymm7);
-		   for (int i = 0; i < m_remainder; i++)
-		   {
-			   tC[i] = f_temp[i];
-		   }
-
-	   }
             // if the N is not multiple of 3.
             // handling edge case.
             if (n_remainder == 2)
@@ -3419,7 +2969,7 @@ static err_t bli_dgemm_small
 
 };
 
-static err_t bli_sgemm_small_atbn
+err_t bli_sgemm_small_atbn
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -3811,7 +3361,7 @@ static err_t bli_sgemm_small_atbn
         return BLIS_NONCONFORMAL_DIMENSIONS;
 }
 
-static err_t bli_dgemm_small_atbn
+err_t bli_dgemm_small_atbn
      (
        obj_t*  alpha,
        obj_t*  a,
