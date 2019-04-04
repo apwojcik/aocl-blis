@@ -47,6 +47,25 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define BLI_AutXB_M_SP   64
 #define BLI_AutXB_N_SP   128
 
+static void blis_dtrsm_microkernel_XAuB_unitdiag_4x16(double *ptr_l,
+				double *ptr_b,
+				int numRows_b,
+				int numCols_b,
+				int rs_a,
+				int rs_b,
+				int cs_l,
+				int cs_b
+				);
+static void blis_dtrsm_microkernel_XAuB_unitdiag_4x12(double *ptr_l,
+				double *ptr_b,
+				int numRows_b,
+				int numCols_b,
+				int rs_a,
+				int rs_b,
+				int cs_l,
+				int cs_b
+				);
+
 static void blis_dtrsm_microkernel_XAuB_unitdiag_4x8(double *ptr_l,
 				double *ptr_b,
 				int numRows_b,
@@ -15629,8 +15648,8 @@ static err_t bli_dtrsm_small_XAuB
     {
 	if(isUnitDiag)
 	{
-	    blis_dtrsm_microkernel_XAuB_unitdiag_4x8(L,B,m,n,rsa,rsb,csa,csb);
-	    fp_blis_dtrsm_microkernel = blis_dtrsm_microkernel_XAuB_unitdiag_4x8;
+	    blis_dtrsm_microkernel_XAuB_unitdiag_4x12(L,B,m,n,rsa,rsb,csa,csb);
+	    fp_blis_dtrsm_microkernel = blis_dtrsm_microkernel_XAuB_unitdiag_4x12;
 	}
 	else
 	{
@@ -15661,6 +15680,7 @@ static err_t bli_dtrsm_small_XAuB
 
 	}
      }
+
     return BLIS_SUCCESS;
 
 }
@@ -15737,7 +15757,9 @@ static void blis_dtrsm_microkernel_XAuB_unitdiag(double *ptr_l,
     _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_b_col[2]);
     _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_b_col[3]);
     }
+
 }
+
 static void blis_dtrsm_microkernel_XAuB_unitdiag_4x8(double *ptr_l,
 				double *ptr_b,
 				int numRows_b,
@@ -15751,12 +15773,12 @@ static void blis_dtrsm_microkernel_XAuB_unitdiag_4x8(double *ptr_l,
     int j;
     int cs_b_offset[3];
     int blk_size = 8;
-    int m_remainder = numRows_b & blk_size;
+//    int m_remainder = numRows_b % blk_size;
     __m256d mat_b_col[8];
     __m256d mat_a_col_rearr[10];
     cs_b_offset[0] = (cs_b << 1);
     cs_b_offset[1] = cs_b + cs_b_offset[0];
-    cs_b_offset[2] = (cs_b << 2);
+//    cs_b_offset[2] = (cs_b << 2);
 
     double *ptr_b_dup;
     //read 4x4 block of A
@@ -15787,15 +15809,18 @@ static void blis_dtrsm_microkernel_XAuB_unitdiag_4x8(double *ptr_l,
     ptr_b_dup = ptr_b;
     //read 4x4 block of B
     mat_b_col[0] = _mm256_loadu_pd((double const *)(ptr_b));
+    mat_b_col[4] = _mm256_loadu_pd((double const *)(ptr_b + 4));
+
     mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + cs_b));
+    mat_b_col[5] = _mm256_loadu_pd((double const *)(ptr_b + cs_b + 4));
+
     mat_b_col[2] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0]));
+    mat_b_col[6] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0] + 4));
+
     mat_b_col[3] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1]));
+    mat_b_col[7] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1] + 4));
 
     //read next 4x4 block of B
-    mat_b_col[4] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[2]));
-    mat_b_col[5] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[2] + cs_b));
-    mat_b_col[6] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[2] + cs_b_offset[0]));
-    mat_b_col[7] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[2] + cs_b_offset[1]));
 
 
 
@@ -15826,17 +15851,202 @@ static void blis_dtrsm_microkernel_XAuB_unitdiag_4x8(double *ptr_l,
     ptr_b += blk_size*rs_b;
     //Store the computed B columns
     _mm256_storeu_pd((double *)ptr_b_dup, mat_b_col[0]);
-    _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_b_col[1]);
-    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_b_col[2]);
-    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_b_col[3]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + 4), mat_b_col[4]);
 
-    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[2]), mat_b_col[0]);
-    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[2] + (cs_b)), mat_b_col[1]);
-    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[2] + cs_b_offset[0]), mat_b_col[2]);
-    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[2] + cs_b_offset[1]), mat_b_col[3]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_b_col[1]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b + 4), mat_b_col[5]);
+
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_b_col[2]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0] + 4), mat_b_col[6]);
+
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_b_col[3]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1] + 4), mat_b_col[7]);
 
     }
-    if(m_remainder)
+
+}
+
+static void blis_dtrsm_microkernel_XAuB_unitdiag_4x12(double *ptr_l,
+				double *ptr_b,
+				int numRows_b,
+				int numCols_b,
+				int rs_a,
+				int rs_b,
+				int cs_l,
+				int cs_b
+				)
+{
+    int j;
+    int cs_b_offset[3];
+    int blk_size = 12;
+    int m_remainder = numRows_b % blk_size;
+    __m256d mat_b_col[blk_size];
+    __m256d mat_a_col_rearr[10];
+    cs_b_offset[0] = (cs_b << 1);
+    cs_b_offset[1] = cs_b + cs_b_offset[0];
+//    cs_b_offset[2] = (cs_b << 2);
+
+    double *ptr_b_dup;
+    //read 4x4 block of A
+    //1st col
+    mat_a_col_rearr[0] = _mm256_broadcast_sd((double const *)(ptr_l +0));
+
+    //2nd col
+    ptr_l += cs_l;
+    mat_a_col_rearr[1] = _mm256_broadcast_sd((double const *)(ptr_l +0));
+    mat_a_col_rearr[2] = _mm256_broadcast_sd((double const *)(ptr_l +1));
+
+    //3rd col
+    ptr_l += cs_l;
+    mat_a_col_rearr[3] = _mm256_broadcast_sd((double const *)(ptr_l +0));
+    mat_a_col_rearr[4] = _mm256_broadcast_sd((double const *)(ptr_l +1));
+    mat_a_col_rearr[5] = _mm256_broadcast_sd((double const *)(ptr_l +2));
+
+    //4th col
+    ptr_l += cs_l;
+    mat_a_col_rearr[6] = _mm256_broadcast_sd((double const *)(ptr_l +0));
+    mat_a_col_rearr[7] = _mm256_broadcast_sd((double const *)(ptr_l +1));
+    mat_a_col_rearr[8] = _mm256_broadcast_sd((double const *)(ptr_l +2));
+    mat_a_col_rearr[9] = _mm256_broadcast_sd((double const *)(ptr_l +3));
+
+
+    for(j = 0; j+(blk_size-1) < numRows_b; j += blk_size)
+    {
+    ptr_b_dup = ptr_b;
+    //read 4x12 block of B
+    mat_b_col[0] = _mm256_loadu_pd((double const *)(ptr_b));
+    mat_b_col[4] = _mm256_loadu_pd((double const *)(ptr_b + 4));
+    mat_b_col[8] = _mm256_loadu_pd((double const *)(ptr_b + 8));
+
+    mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + cs_b));
+    mat_b_col[5] = _mm256_loadu_pd((double const *)(ptr_b + cs_b + 4));
+    mat_b_col[9] = _mm256_loadu_pd((double const *)(ptr_b + cs_b + 8));
+
+    mat_b_col[2] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0]));
+    mat_b_col[6] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0] + 4));
+    mat_b_col[10] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0] + 8));
+
+    mat_b_col[3] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1]));
+    mat_b_col[7] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1] + 4));
+    mat_b_col[11] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1] + 8));
+
+    //read next 4x4 block of B
+
+
+
+    //since alpha=1 and A is unit-diagonal, no need to process first col of B
+    //(Row 1):FMA operations
+    mat_b_col[1] = _mm256_fnmadd_pd(mat_a_col_rearr[1], mat_b_col[0], mat_b_col[1]);//d = c - (a*b)
+    mat_b_col[2] = _mm256_fnmadd_pd(mat_a_col_rearr[3], mat_b_col[0], mat_b_col[2]);//d = c - (a*b)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[6], mat_b_col[0], mat_b_col[3]);//d = c - (a*b)
+
+    mat_b_col[5] = _mm256_fnmadd_pd(mat_a_col_rearr[1], mat_b_col[4], mat_b_col[5]);//d = c - (a*b)
+    mat_b_col[6] = _mm256_fnmadd_pd(mat_a_col_rearr[3], mat_b_col[4], mat_b_col[6]);//d = c - (a*b)
+    mat_b_col[7] = _mm256_fnmadd_pd(mat_a_col_rearr[6], mat_b_col[4], mat_b_col[7]);//d = c - (a*b)
+
+    mat_b_col[9] = _mm256_fnmadd_pd(mat_a_col_rearr[1], mat_b_col[4], mat_b_col[9]);//d = c - (a*b)
+    mat_b_col[10] = _mm256_fnmadd_pd(mat_a_col_rearr[3], mat_b_col[4], mat_b_col[10]);//d = c - (a*b)
+    mat_b_col[11] = _mm256_fnmadd_pd(mat_a_col_rearr[6], mat_b_col[4], mat_b_col[11]);//d = c - (a*b)
+
+
+    //(Row2): FMA operations of b2 with elements of indices from (2, 0) uptill (7, 0)
+    mat_b_col[2] = _mm256_fnmadd_pd(mat_a_col_rearr[4], mat_b_col[1], mat_b_col[2]);//d = c - (a*b)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[7], mat_b_col[1], mat_b_col[3]);//d = c - (a*b)
+
+    mat_b_col[6] = _mm256_fnmadd_pd(mat_a_col_rearr[4], mat_b_col[5], mat_b_col[6]);//d = c - (a*b)
+    mat_b_col[7] = _mm256_fnmadd_pd(mat_a_col_rearr[7], mat_b_col[5], mat_b_col[7]);//d = c - (a*b)
+
+    mat_b_col[10] = _mm256_fnmadd_pd(mat_a_col_rearr[4], mat_b_col[5], mat_b_col[10]);//d = c - (a*b)
+    mat_b_col[11] = _mm256_fnmadd_pd(mat_a_col_rearr[7], mat_b_col[5], mat_b_col[11]);//d = c - (a*b)
+
+
+    //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[8], mat_b_col[2], mat_b_col[3]);//d = c - (a*b)
+
+    mat_b_col[7] = _mm256_fnmadd_pd(mat_a_col_rearr[8], mat_b_col[6], mat_b_col[7]);//d = c - (a*b)
+
+    mat_b_col[11] = _mm256_fnmadd_pd(mat_a_col_rearr[8], mat_b_col[6], mat_b_col[11]);//d = c - (a*b)
+
+    ptr_b += blk_size*rs_b;
+    //Store the computed B columns
+    _mm256_storeu_pd((double *)ptr_b_dup, mat_b_col[0]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + 4), mat_b_col[4]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + 8), mat_b_col[8]);
+
+    _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_b_col[1]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b + 4), mat_b_col[5]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b + 8), mat_b_col[9]);
+
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_b_col[2]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0] + 4), mat_b_col[6]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0] + 8), mat_b_col[10]);
+
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_b_col[3]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1] + 4), mat_b_col[7]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1] + 8), mat_b_col[11]);
+
+    }
+    if(m_remainder > 8)
+    {
+    ptr_b_dup = ptr_b;
+    //read 4x4 block of B
+    mat_b_col[0] = _mm256_loadu_pd((double const *)(ptr_b));
+    mat_b_col[4] = _mm256_loadu_pd((double const *)(ptr_b + 4));
+
+    mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + cs_b));
+    mat_b_col[5] = _mm256_loadu_pd((double const *)(ptr_b + cs_b + 4));
+
+    mat_b_col[2] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0]));
+    mat_b_col[6] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0] + 4));
+
+    mat_b_col[3] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1]));
+    mat_b_col[7] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1] + 4));
+
+    //read next 4x4 block of B
+
+
+
+    //since alpha=1 and A is unit-diagonal, no need to process first col of B
+    //(Row 1):FMA operations
+    mat_b_col[1] = _mm256_fnmadd_pd(mat_a_col_rearr[1], mat_b_col[0], mat_b_col[1]);//d = c - (a*b)
+    mat_b_col[2] = _mm256_fnmadd_pd(mat_a_col_rearr[3], mat_b_col[0], mat_b_col[2]);//d = c - (a*b)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[6], mat_b_col[0], mat_b_col[3]);//d = c - (a*b)
+
+    mat_b_col[5] = _mm256_fnmadd_pd(mat_a_col_rearr[1], mat_b_col[4], mat_b_col[5]);//d = c - (a*b)
+    mat_b_col[6] = _mm256_fnmadd_pd(mat_a_col_rearr[3], mat_b_col[4], mat_b_col[6]);//d = c - (a*b)
+    mat_b_col[7] = _mm256_fnmadd_pd(mat_a_col_rearr[6], mat_b_col[4], mat_b_col[7]);//d = c - (a*b)
+
+
+    //(Row2): FMA operations of b2 with elements of indices from (2, 0) uptill (7, 0)
+    mat_b_col[2] = _mm256_fnmadd_pd(mat_a_col_rearr[4], mat_b_col[1], mat_b_col[2]);//d = c - (a*b)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[7], mat_b_col[1], mat_b_col[3]);//d = c - (a*b)
+
+    mat_b_col[6] = _mm256_fnmadd_pd(mat_a_col_rearr[4], mat_b_col[5], mat_b_col[6]);//d = c - (a*b)
+    mat_b_col[7] = _mm256_fnmadd_pd(mat_a_col_rearr[7], mat_b_col[5], mat_b_col[7]);//d = c - (a*b)
+
+
+    //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[8], mat_b_col[2], mat_b_col[3]);//d = c - (a*b)
+
+    mat_b_col[7] = _mm256_fnmadd_pd(mat_a_col_rearr[8], mat_b_col[6], mat_b_col[7]);//d = c - (a*b)
+
+    ptr_b += blk_size*rs_b;
+    //Store the computed B columns
+    _mm256_storeu_pd((double *)ptr_b_dup, mat_b_col[0]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + 4), mat_b_col[4]);
+
+    _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_b_col[1]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b + 4), mat_b_col[5]);
+
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_b_col[2]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0] + 4), mat_b_col[6]);
+
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_b_col[3]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1] + 4), mat_b_col[7]);
+
+    m_remainder -= 8;
+    }
+    if(m_remainder > 4)
     {
     ptr_b_dup = ptr_b;
     //read 4x4 block of B
@@ -15859,13 +16069,325 @@ static void blis_dtrsm_microkernel_XAuB_unitdiag_4x8(double *ptr_l,
 
     //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
     mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[8], mat_b_col[2], mat_b_col[3]);//d = c - (a*b)
-    ptr_b += 4*rs_b;
+    ptr_b += blk_size*rs_b;
     //Store the computed B columns
     _mm256_storeu_pd((double *)ptr_b_dup, mat_b_col[0]);
     _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_b_col[1]);
     _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_b_col[2]);
     _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_b_col[3]);
+    m_remainder -= 4;
     }
+
+
+
+}
+
+static void blis_dtrsm_microkernel_XAuB_unitdiag_4x16(double *ptr_l,
+				double *ptr_b,
+				int numRows_b,
+				int numCols_b,
+				int rs_a,
+				int rs_b,
+				int cs_l,
+				int cs_b
+				)
+{
+    int j;
+    int cs_b_offset[3];
+    int blk_size = 16;
+    int m_remainder = numRows_b % blk_size;
+    __m256d mat_b_col[blk_size];
+    __m256d mat_a_col_rearr[10];
+    cs_b_offset[0] = (cs_b << 1);
+    cs_b_offset[1] = cs_b + cs_b_offset[0];
+//    cs_b_offset[2] = (cs_b << 2);
+
+    double *ptr_b_dup;
+    //read 4x4 block of A
+    //1st col
+    mat_a_col_rearr[0] = _mm256_broadcast_sd((double const *)(ptr_l +0));
+
+    //2nd col
+    ptr_l += cs_l;
+    mat_a_col_rearr[1] = _mm256_broadcast_sd((double const *)(ptr_l +0));
+    mat_a_col_rearr[2] = _mm256_broadcast_sd((double const *)(ptr_l +1));
+
+    //3rd col
+    ptr_l += cs_l;
+    mat_a_col_rearr[3] = _mm256_broadcast_sd((double const *)(ptr_l +0));
+    mat_a_col_rearr[4] = _mm256_broadcast_sd((double const *)(ptr_l +1));
+    mat_a_col_rearr[5] = _mm256_broadcast_sd((double const *)(ptr_l +2));
+
+    //4th col
+    ptr_l += cs_l;
+    mat_a_col_rearr[6] = _mm256_broadcast_sd((double const *)(ptr_l +0));
+    mat_a_col_rearr[7] = _mm256_broadcast_sd((double const *)(ptr_l +1));
+    mat_a_col_rearr[8] = _mm256_broadcast_sd((double const *)(ptr_l +2));
+    mat_a_col_rearr[9] = _mm256_broadcast_sd((double const *)(ptr_l +3));
+
+
+    for(j = 0; j+(blk_size-1) < numRows_b; j += blk_size)
+    {
+    ptr_b_dup = ptr_b;
+    //read 4x12 block of B
+    mat_b_col[0] = _mm256_loadu_pd((double const *)(ptr_b));
+    mat_b_col[4] = _mm256_loadu_pd((double const *)(ptr_b + 4));
+    mat_b_col[8] = _mm256_loadu_pd((double const *)(ptr_b + 8));
+    mat_b_col[12] = _mm256_loadu_pd((double const *)(ptr_b + 12));
+
+    mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + cs_b));
+    mat_b_col[5] = _mm256_loadu_pd((double const *)(ptr_b + cs_b + 4));
+    mat_b_col[9] = _mm256_loadu_pd((double const *)(ptr_b + cs_b + 8));
+    mat_b_col[13] = _mm256_loadu_pd((double const *)(ptr_b + cs_b + 12));
+
+    mat_b_col[2] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0]));
+    mat_b_col[6] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0] + 4));
+    mat_b_col[10] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0] + 8));
+    mat_b_col[14] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0] + 12));
+
+    mat_b_col[3] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1]));
+    mat_b_col[7] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1] + 4));
+    mat_b_col[11] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1] + 8));
+    mat_b_col[15] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1] + 12));
+
+    //read next 4x4 block of B
+
+
+
+    //since alpha=1 and A is unit-diagonal, no need to process first col of B
+    //(Row 1):FMA operations
+    mat_b_col[1] = _mm256_fnmadd_pd(mat_a_col_rearr[1], mat_b_col[0], mat_b_col[1]);//d = c - (a*b)
+    mat_b_col[2] = _mm256_fnmadd_pd(mat_a_col_rearr[3], mat_b_col[0], mat_b_col[2]);//d = c - (a*b)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[6], mat_b_col[0], mat_b_col[3]);//d = c - (a*b)
+
+    mat_b_col[5] = _mm256_fnmadd_pd(mat_a_col_rearr[1], mat_b_col[4], mat_b_col[5]);//d = c - (a*b)
+    mat_b_col[6] = _mm256_fnmadd_pd(mat_a_col_rearr[3], mat_b_col[4], mat_b_col[6]);//d = c - (a*b)
+    mat_b_col[7] = _mm256_fnmadd_pd(mat_a_col_rearr[6], mat_b_col[4], mat_b_col[7]);//d = c - (a*b)
+
+    mat_b_col[9] = _mm256_fnmadd_pd(mat_a_col_rearr[1], mat_b_col[4], mat_b_col[9]);//d = c - (a*b)
+    mat_b_col[10] = _mm256_fnmadd_pd(mat_a_col_rearr[3], mat_b_col[4], mat_b_col[10]);//d = c - (a*b)
+    mat_b_col[11] = _mm256_fnmadd_pd(mat_a_col_rearr[6], mat_b_col[4], mat_b_col[11]);//d = c - (a*b)
+
+    mat_b_col[13] = _mm256_fnmadd_pd(mat_a_col_rearr[1], mat_b_col[4], mat_b_col[13]);//d = c - (a*b)
+    mat_b_col[14] = _mm256_fnmadd_pd(mat_a_col_rearr[3], mat_b_col[4], mat_b_col[14]);//d = c - (a*b)
+    mat_b_col[15] = _mm256_fnmadd_pd(mat_a_col_rearr[6], mat_b_col[4], mat_b_col[15]);//d = c - (a*b)
+
+
+    //(Row2): FMA operations of b2 with elements of indices from (2, 0) uptill (7, 0)
+    mat_b_col[2] = _mm256_fnmadd_pd(mat_a_col_rearr[4], mat_b_col[1], mat_b_col[2]);//d = c - (a*b)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[7], mat_b_col[1], mat_b_col[3]);//d = c - (a*b)
+
+    mat_b_col[6] = _mm256_fnmadd_pd(mat_a_col_rearr[4], mat_b_col[5], mat_b_col[6]);//d = c - (a*b)
+    mat_b_col[7] = _mm256_fnmadd_pd(mat_a_col_rearr[7], mat_b_col[5], mat_b_col[7]);//d = c - (a*b)
+
+    mat_b_col[10] = _mm256_fnmadd_pd(mat_a_col_rearr[4], mat_b_col[5], mat_b_col[10]);//d = c - (a*b)
+    mat_b_col[11] = _mm256_fnmadd_pd(mat_a_col_rearr[7], mat_b_col[5], mat_b_col[11]);//d = c - (a*b)
+
+    mat_b_col[14] = _mm256_fnmadd_pd(mat_a_col_rearr[4], mat_b_col[5], mat_b_col[14]);//d = c - (a*b)
+    mat_b_col[15] = _mm256_fnmadd_pd(mat_a_col_rearr[7], mat_b_col[5], mat_b_col[15]);//d = c - (a*b)
+
+
+    //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[8], mat_b_col[2], mat_b_col[3]);//d = c - (a*b)
+
+    mat_b_col[7] = _mm256_fnmadd_pd(mat_a_col_rearr[8], mat_b_col[6], mat_b_col[7]);//d = c - (a*b)
+
+    mat_b_col[11] = _mm256_fnmadd_pd(mat_a_col_rearr[8], mat_b_col[6], mat_b_col[11]);//d = c - (a*b)
+
+    mat_b_col[15] = _mm256_fnmadd_pd(mat_a_col_rearr[8], mat_b_col[6], mat_b_col[15]);//d = c - (a*b)
+
+    ptr_b += blk_size*rs_b;
+    //Store the computed B columns
+    _mm256_storeu_pd((double *)ptr_b_dup, mat_b_col[0]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + 4), mat_b_col[4]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + 8), mat_b_col[8]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + 12), mat_b_col[12]);
+
+    _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_b_col[1]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b + 4), mat_b_col[5]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b + 8), mat_b_col[9]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b + 12), mat_b_col[13]);
+
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_b_col[2]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0] + 4), mat_b_col[6]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0] + 8), mat_b_col[10]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0] + 12), mat_b_col[14]);
+
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_b_col[3]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1] + 4), mat_b_col[7]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1] + 8), mat_b_col[11]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1] + 12), mat_b_col[15]);
+
+    }
+    if(m_remainder >12)
+    {
+    ptr_b_dup = ptr_b;
+    //read 4x12 block of B
+    mat_b_col[0] = _mm256_loadu_pd((double const *)(ptr_b));
+    mat_b_col[4] = _mm256_loadu_pd((double const *)(ptr_b + 4));
+    mat_b_col[8] = _mm256_loadu_pd((double const *)(ptr_b + 8));
+
+    mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + cs_b));
+    mat_b_col[5] = _mm256_loadu_pd((double const *)(ptr_b + cs_b + 4));
+    mat_b_col[9] = _mm256_loadu_pd((double const *)(ptr_b + cs_b + 8));
+
+    mat_b_col[2] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0]));
+    mat_b_col[6] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0] + 4));
+    mat_b_col[10] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0] + 8));
+
+    mat_b_col[3] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1]));
+    mat_b_col[7] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1] + 4));
+    mat_b_col[11] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1] + 8));
+
+    //read next 4x4 block of B
+
+
+
+    //since alpha=1 and A is unit-diagonal, no need to process first col of B
+    //(Row 1):FMA operations
+    mat_b_col[1] = _mm256_fnmadd_pd(mat_a_col_rearr[1], mat_b_col[0], mat_b_col[1]);//d = c - (a*b)
+    mat_b_col[2] = _mm256_fnmadd_pd(mat_a_col_rearr[3], mat_b_col[0], mat_b_col[2]);//d = c - (a*b)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[6], mat_b_col[0], mat_b_col[3]);//d = c - (a*b)
+
+    mat_b_col[5] = _mm256_fnmadd_pd(mat_a_col_rearr[1], mat_b_col[4], mat_b_col[5]);//d = c - (a*b)
+    mat_b_col[6] = _mm256_fnmadd_pd(mat_a_col_rearr[3], mat_b_col[4], mat_b_col[6]);//d = c - (a*b)
+    mat_b_col[7] = _mm256_fnmadd_pd(mat_a_col_rearr[6], mat_b_col[4], mat_b_col[7]);//d = c - (a*b)
+
+    mat_b_col[9] = _mm256_fnmadd_pd(mat_a_col_rearr[1], mat_b_col[4], mat_b_col[9]);//d = c - (a*b)
+    mat_b_col[10] = _mm256_fnmadd_pd(mat_a_col_rearr[3], mat_b_col[4], mat_b_col[10]);//d = c - (a*b)
+    mat_b_col[11] = _mm256_fnmadd_pd(mat_a_col_rearr[6], mat_b_col[4], mat_b_col[11]);//d = c - (a*b)
+
+
+    //(Row2): FMA operations of b2 with elements of indices from (2, 0) uptill (7, 0)
+    mat_b_col[2] = _mm256_fnmadd_pd(mat_a_col_rearr[4], mat_b_col[1], mat_b_col[2]);//d = c - (a*b)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[7], mat_b_col[1], mat_b_col[3]);//d = c - (a*b)
+
+    mat_b_col[6] = _mm256_fnmadd_pd(mat_a_col_rearr[4], mat_b_col[5], mat_b_col[6]);//d = c - (a*b)
+    mat_b_col[7] = _mm256_fnmadd_pd(mat_a_col_rearr[7], mat_b_col[5], mat_b_col[7]);//d = c - (a*b)
+
+    mat_b_col[10] = _mm256_fnmadd_pd(mat_a_col_rearr[4], mat_b_col[5], mat_b_col[10]);//d = c - (a*b)
+    mat_b_col[11] = _mm256_fnmadd_pd(mat_a_col_rearr[7], mat_b_col[5], mat_b_col[11]);//d = c - (a*b)
+
+
+    //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[8], mat_b_col[2], mat_b_col[3]);//d = c - (a*b)
+
+    mat_b_col[7] = _mm256_fnmadd_pd(mat_a_col_rearr[8], mat_b_col[6], mat_b_col[7]);//d = c - (a*b)
+
+    mat_b_col[11] = _mm256_fnmadd_pd(mat_a_col_rearr[8], mat_b_col[6], mat_b_col[11]);//d = c - (a*b)
+
+    ptr_b += blk_size*rs_b;
+    //Store the computed B columns
+    _mm256_storeu_pd((double *)ptr_b_dup, mat_b_col[0]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + 4), mat_b_col[4]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + 8), mat_b_col[8]);
+
+    _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_b_col[1]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b + 4), mat_b_col[5]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b + 8), mat_b_col[9]);
+
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_b_col[2]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0] + 4), mat_b_col[6]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0] + 8), mat_b_col[10]);
+
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_b_col[3]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1] + 4), mat_b_col[7]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1] + 8), mat_b_col[11]);
+
+    }
+    if(m_remainder > 8)
+    {
+    ptr_b_dup = ptr_b;
+    //read 4x4 block of B
+    mat_b_col[0] = _mm256_loadu_pd((double const *)(ptr_b));
+    mat_b_col[4] = _mm256_loadu_pd((double const *)(ptr_b + 4));
+
+    mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + cs_b));
+    mat_b_col[5] = _mm256_loadu_pd((double const *)(ptr_b + cs_b + 4));
+
+    mat_b_col[2] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0]));
+    mat_b_col[6] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0] + 4));
+
+    mat_b_col[3] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1]));
+    mat_b_col[7] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1] + 4));
+
+    //read next 4x4 block of B
+
+
+
+    //since alpha=1 and A is unit-diagonal, no need to process first col of B
+    //(Row 1):FMA operations
+    mat_b_col[1] = _mm256_fnmadd_pd(mat_a_col_rearr[1], mat_b_col[0], mat_b_col[1]);//d = c - (a*b)
+    mat_b_col[2] = _mm256_fnmadd_pd(mat_a_col_rearr[3], mat_b_col[0], mat_b_col[2]);//d = c - (a*b)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[6], mat_b_col[0], mat_b_col[3]);//d = c - (a*b)
+
+    mat_b_col[5] = _mm256_fnmadd_pd(mat_a_col_rearr[1], mat_b_col[4], mat_b_col[5]);//d = c - (a*b)
+    mat_b_col[6] = _mm256_fnmadd_pd(mat_a_col_rearr[3], mat_b_col[4], mat_b_col[6]);//d = c - (a*b)
+    mat_b_col[7] = _mm256_fnmadd_pd(mat_a_col_rearr[6], mat_b_col[4], mat_b_col[7]);//d = c - (a*b)
+
+
+    //(Row2): FMA operations of b2 with elements of indices from (2, 0) uptill (7, 0)
+    mat_b_col[2] = _mm256_fnmadd_pd(mat_a_col_rearr[4], mat_b_col[1], mat_b_col[2]);//d = c - (a*b)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[7], mat_b_col[1], mat_b_col[3]);//d = c - (a*b)
+
+    mat_b_col[6] = _mm256_fnmadd_pd(mat_a_col_rearr[4], mat_b_col[5], mat_b_col[6]);//d = c - (a*b)
+    mat_b_col[7] = _mm256_fnmadd_pd(mat_a_col_rearr[7], mat_b_col[5], mat_b_col[7]);//d = c - (a*b)
+
+
+    //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[8], mat_b_col[2], mat_b_col[3]);//d = c - (a*b)
+
+    mat_b_col[7] = _mm256_fnmadd_pd(mat_a_col_rearr[8], mat_b_col[6], mat_b_col[7]);//d = c - (a*b)
+
+    ptr_b += blk_size*rs_b;
+    //Store the computed B columns
+    _mm256_storeu_pd((double *)ptr_b_dup, mat_b_col[0]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + 4), mat_b_col[4]);
+
+    _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_b_col[1]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b + 4), mat_b_col[5]);
+
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_b_col[2]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0] + 4), mat_b_col[6]);
+
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_b_col[3]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1] + 4), mat_b_col[7]);
+
+    m_remainder -= 8;
+    }
+    if(m_remainder > 4)
+    {
+    ptr_b_dup = ptr_b;
+    //read 4x4 block of B
+    mat_b_col[0] = _mm256_loadu_pd((double const *)(ptr_b));
+    mat_b_col[1] = _mm256_loadu_pd((double const *)(ptr_b + cs_b));
+    mat_b_col[2] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[0]));
+    mat_b_col[3] = _mm256_loadu_pd((double const *)(ptr_b + cs_b_offset[1]));
+
+    //since alpha=1 and A is unit-diagonal, no need to process first col of B
+    //(Row 1):FMA operations
+    mat_b_col[1] = _mm256_fnmadd_pd(mat_a_col_rearr[1], mat_b_col[0], mat_b_col[1]);//d = c - (a*b)
+    mat_b_col[2] = _mm256_fnmadd_pd(mat_a_col_rearr[3], mat_b_col[0], mat_b_col[2]);//d = c - (a*b)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[6], mat_b_col[0], mat_b_col[3]);//d = c - (a*b)
+
+
+    //(Row2): FMA operations of b2 with elements of indices from (2, 0) uptill (7, 0)
+    mat_b_col[2] = _mm256_fnmadd_pd(mat_a_col_rearr[4], mat_b_col[1], mat_b_col[2]);//d = c - (a*b)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[7], mat_b_col[1], mat_b_col[3]);//d = c - (a*b)
+
+
+    //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
+    mat_b_col[3] = _mm256_fnmadd_pd(mat_a_col_rearr[8], mat_b_col[2], mat_b_col[3]);//d = c - (a*b)
+    ptr_b += blk_size*rs_b;
+    //Store the computed B columns
+    _mm256_storeu_pd((double *)ptr_b_dup, mat_b_col[0]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + (cs_b)), mat_b_col[1]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[0]), mat_b_col[2]);
+    _mm256_storeu_pd((double *)(ptr_b_dup + cs_b_offset[1]), mat_b_col[3]);
+    m_remainder -= 4;
+    }
+
+
 
 }
 
