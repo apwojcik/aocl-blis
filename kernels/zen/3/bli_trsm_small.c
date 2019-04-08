@@ -883,6 +883,239 @@ static void blis_dtrsm_microkernel_AlXB_large(
     double ones = 1.0;
     double* ptr_b01_dup;
 
+    __m256d ymm0, ymm1, ymm2, ymm3;
+    __m256d  ymm4, ymm5, ymm6, ymm7;
+    __m256d  ymm8, ymm9, ymm10, ymm11;
+    __m256d ymm12, ymm13, ymm14, ymm15;
+
+
+    cs_b_offset[0] = cs_b << 1;
+    cs_b_offset[1] = cs_b_offset[0] + cs_b;
+
+    cs_a_offset[0] = cs_a << 1;
+    cs_a_offset[1] = cs_a_offset[0] + cs_a;
+
+    ///GEMM for previously calculated values ///
+
+    //load 4x4 block from b11
+    ymm0 = _mm256_loadu_pd((double const *)(b11));
+    ymm1 = _mm256_loadu_pd((double const *)(b11 + cs_b));
+    ymm2 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[0]));
+    ymm3 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[1]));
+
+
+    ymm4 = _mm256_setzero_pd();
+    ymm5 = _mm256_setzero_pd();
+    ymm6 = _mm256_setzero_pd();
+    ymm7 = _mm256_setzero_pd();
+
+    for(i = 0; i < k_iter; i++)
+    {
+	ptr_b01_dup = b01;
+	ymm8 = _mm256_loadu_pd((double const *)(a10));
+	ymm9 = _mm256_loadu_pd((double const *)(a10 + cs_a));
+	ymm10 = _mm256_loadu_pd((double const *)(a10 + cs_a_offset[0]));
+	ymm11 = _mm256_loadu_pd((double const *)(a10 + cs_a_offset[1]));
+
+        ymm12 = _mm256_broadcast_sd((double const *)(b01 + cs_b * 0));
+        ymm13 = _mm256_broadcast_sd((double const *)(b01 + cs_b * 1));
+        ymm14 = _mm256_broadcast_sd((double const *)(b01 + cs_b * 2));
+        ymm15 = _mm256_broadcast_sd((double const *)(b01 + cs_b * 3));
+
+	b01 += 1;
+
+	ymm4 = _mm256_fmadd_pd(ymm12, ymm8, ymm4);
+	ymm5 = _mm256_fmadd_pd(ymm13, ymm8, ymm5);
+	ymm6 = _mm256_fmadd_pd(ymm14, ymm8, ymm6);
+	ymm7 = _mm256_fmadd_pd(ymm15, ymm8, ymm7);
+
+        ymm12 = _mm256_broadcast_sd((double const *)(b01 + cs_b * 0));
+        ymm13 = _mm256_broadcast_sd((double const *)(b01 + cs_b * 1));
+        ymm14 = _mm256_broadcast_sd((double const *)(b01 + cs_b * 2));
+        ymm15 = _mm256_broadcast_sd((double const *)(b01 + cs_b * 3));
+
+	b01 += 1;
+
+	ymm4 = _mm256_fmadd_pd(ymm12, ymm9, ymm4);
+	ymm5 = _mm256_fmadd_pd(ymm13, ymm9, ymm5);
+	ymm6 = _mm256_fmadd_pd(ymm14, ymm9, ymm6);
+	ymm7 = _mm256_fmadd_pd(ymm15, ymm9, ymm7);
+
+        ymm12 = _mm256_broadcast_sd((double const *)(b01 + cs_b * 0));
+        ymm13 = _mm256_broadcast_sd((double const *)(b01 + cs_b * 1));
+        ymm14 = _mm256_broadcast_sd((double const *)(b01 + cs_b * 2));
+        ymm15 = _mm256_broadcast_sd((double const *)(b01 + cs_b * 3));
+
+	b01 += 1;
+
+
+	ymm4 = _mm256_fmadd_pd(ymm12, ymm10, ymm4);
+	ymm5 = _mm256_fmadd_pd(ymm13, ymm10, ymm5);
+	ymm6 = _mm256_fmadd_pd(ymm14, ymm10, ymm6);
+	ymm7 = _mm256_fmadd_pd(ymm15, ymm10, ymm7);
+
+        ymm12 = _mm256_broadcast_sd((double const *)(b01 + cs_b * 0));
+        ymm13 = _mm256_broadcast_sd((double const *)(b01 + cs_b * 1));
+        ymm14 = _mm256_broadcast_sd((double const *)(b01 + cs_b * 2));
+        ymm15 = _mm256_broadcast_sd((double const *)(b01 + cs_b * 3));
+
+	b01 += 1;
+
+	ymm4 = _mm256_fmadd_pd(ymm12, ymm11, ymm4);
+	ymm5 = _mm256_fmadd_pd(ymm13, ymm11, ymm5);
+	ymm6 = _mm256_fmadd_pd(ymm14, ymm11, ymm6);
+	ymm7 = _mm256_fmadd_pd(ymm15, ymm11, ymm7);
+
+
+	a10 += blk_size * cs_a;
+	b01 = ptr_b01_dup + blk_size;
+
+    }
+	ymm0 = _mm256_sub_pd(ymm0, ymm4);
+	ymm1 = _mm256_sub_pd(ymm1, ymm5);
+	ymm2 = _mm256_sub_pd(ymm2, ymm6);
+	ymm3 = _mm256_sub_pd(ymm3, ymm7);
+
+    ///implement TRSM///
+    //1st col
+    ymm4 = _mm256_broadcast_sd((double const *)(a11+0));
+    ymm5 = _mm256_broadcast_sd((double const *)(a11+1));
+    ymm6 = _mm256_broadcast_sd((double const *)(a11+2));
+    ymm7 = _mm256_broadcast_sd((double const *)(a11+3));
+
+    //2nd col
+    a11 += cs_a;
+    ymm8 = _mm256_broadcast_sd((double const *)(a11 + 1));
+    ymm9 = _mm256_broadcast_sd((double const *)(a11 + 2));
+    ymm10 = _mm256_broadcast_sd((double const *)(a11 + 3));
+
+    //3rd col
+    a11 += cs_a;
+    ymm11 = _mm256_broadcast_sd((double const *)(a11 + 2));
+    ymm12 = _mm256_broadcast_sd((double const *)(a11 + 3));
+
+    //4th col
+    a11 += cs_a;
+    ymm13 = _mm256_broadcast_sd((double const *)(a11 + 3));
+    //compute reciprocals of L(i,i) and broadcast in registers
+    ymm4 = _mm256_unpacklo_pd(ymm4, ymm8);
+    ymm8 = _mm256_unpacklo_pd(ymm11, ymm13);
+
+    ymm14 = _mm256_broadcast_sd((double const *)&ones);
+
+    ymm4 = _mm256_blend_pd(ymm4, ymm8, 0x0C);
+    ymm14 = _mm256_div_pd(ymm14, ymm4);
+
+        ////unpacklow////
+        ymm8 = _mm256_unpacklo_pd(ymm0, ymm1);
+        ymm13 = _mm256_unpacklo_pd(ymm2, ymm3);
+
+        //rearrange low elements
+        ymm4 = _mm256_permute2f128_pd(ymm8,ymm13,0x20);
+        ymm11 = _mm256_permute2f128_pd(ymm8,ymm13,0x31);
+/*
+        mat_b_rearr[0] = _mm256_mul_pd(mat_b_rearr[0], alphaReg);
+        mat_b_rearr[2] = _mm256_mul_pd(mat_b_rearr[2], alphaReg);
+*/
+        ////unpackhigh////
+        ymm0 = _mm256_unpackhi_pd(ymm0, ymm1);
+        ymm1 = _mm256_unpackhi_pd(ymm2, ymm3);
+
+        //rearrange high elements
+        ymm8 = _mm256_permute2f128_pd(ymm0,ymm1,0x20);
+        ymm13 = _mm256_permute2f128_pd(ymm0,ymm1,0x31);
+/*
+        mat_b_rearr[1] = _mm256_mul_pd(mat_b_rearr[1], alphaReg);
+        mat_b_rearr[3] = _mm256_mul_pd(mat_b_rearr[3], alphaReg);
+*/
+        //extract a00
+        ymm15 = _mm256_permute_pd(ymm14, 0x00);
+        ymm15 = _mm256_permute2f128_pd(ymm15, ymm15, 0x00);
+        //(Row0): Perform mul operation of reciprocal of L(0,0) element with 1st row elements of B
+        ymm4 = _mm256_mul_pd(ymm4, ymm15);
+
+        //extract diag a11 from a
+        ymm15 = _mm256_permute_pd(ymm14, 0x03);
+        ymm15 = _mm256_permute2f128_pd(ymm15, ymm15, 0x00);
+
+        //(Row1): FMA operations of b1 with elements of indices from (1, 0) uptill (3, 0)
+        ymm8 = _mm256_fnmadd_pd(ymm5, ymm4, ymm8);//d = c - (a*b)
+        ymm11 = _mm256_fnmadd_pd(ymm6, ymm4, ymm11);//d = c - (a*b)
+        ymm13 = _mm256_fnmadd_pd(ymm7, ymm4, ymm13);//d = c - (a*b)
+        //Perform mul operation of reciprocal of L(1,1) element with 2nd row elements of B
+        ymm8 = _mm256_mul_pd(ymm8, ymm15);
+
+
+        //extract diag a22 from a
+        ymm15 = _mm256_permute_pd(ymm14, 0x00);
+        ymm15 = _mm256_permute2f128_pd(ymm15, ymm15, 0x11);
+
+        //(Row2): FMA operations of b2 with elements of indices from (2, 0) uptill (7, 0)
+        ymm11 = _mm256_fnmadd_pd(ymm9, ymm8, ymm11);//d = c - (a*b)
+        ymm13 = _mm256_fnmadd_pd(ymm10, ymm8, ymm13);//d = c - (a*b)
+
+        //Perform mul operation of reciprocal of L(2, 2) element with 3rd row elements of B
+        ymm11 = _mm256_mul_pd(ymm11, ymm15);
+
+        //extract diag a33 from a
+        ymm15 = _mm256_permute_pd(ymm14, 0x0C);
+        ymm15 = _mm256_permute2f128_pd(ymm15, ymm15, 0x11);
+
+        //(Row3): FMA operations of b3 with elements of indices from (3, 0) uptill (7, 0)
+        ymm13 = _mm256_fnmadd_pd(ymm12, ymm11, ymm13);//d = c - (a*b)
+
+        //Perform mul operation of reciprocal of L(3, 3) element with 4rth row elements of B
+        ymm13 = _mm256_mul_pd(ymm13, ymm15);
+
+        //--> Transpose and store results of columns of B block <--//
+        ////unpacklow////
+        ymm1 = _mm256_unpacklo_pd(ymm4, ymm8);
+        ymm3 = _mm256_unpacklo_pd(ymm11, ymm13);
+
+        //rearrange low elements
+        ymm0 = _mm256_permute2f128_pd(ymm1,ymm3,0x20);
+        ymm2 = _mm256_permute2f128_pd(ymm1,ymm3,0x31);
+
+         ////unpackhigh////
+        ymm14 = _mm256_unpackhi_pd(ymm4, ymm8);
+
+        ymm15 = _mm256_unpackhi_pd(ymm11, ymm13);
+
+        //rearrange high elements
+        ymm1 = _mm256_permute2f128_pd(ymm14,ymm15,0x20);
+        ymm3 = _mm256_permute2f128_pd(ymm14,ymm15,0x31);
+
+        _mm256_storeu_pd((double *)b11, ymm0);
+        _mm256_storeu_pd((double *)(b11 + (cs_b)), ymm1);
+        _mm256_storeu_pd((double *)(b11 + cs_b_offset[0]), ymm2);
+        _mm256_storeu_pd((double *)(b11 + cs_b_offset[1]), ymm3);
+
+
+}
+/*
+static void blis_dtrsm_microkernel_AlXB_large(
+					int k,
+					double AlphaVal,
+					double* a10,
+					double* a11,
+					double* b01,
+					double* b11,
+					double* c11,
+					int cs_a,
+					int cs_b
+)
+{
+    int blk_size = 4;
+    int k_iter = k / blk_size;
+    int k_left = k%blk_size;
+    int i;
+
+    int cs_b_offset[2];
+    int cs_a_offset[2];
+
+    double ones = 1.0;
+    double* ptr_b01_dup;
+
     __m256d mat_b11_col[blk_size];
     __m256d mat_b01_col[blk_size];
     __m256d mat_a10_col[blk_size];
@@ -910,6 +1143,11 @@ static void blis_dtrsm_microkernel_AlXB_large(
     mat_b11_col[3] = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[1]));
 
 
+    mat_a_rearr[0] = _mm256_setzero_pd();
+    mat_a_rearr[1] = _mm256_setzero_pd();
+    mat_a_rearr[2] = _mm256_setzero_pd();
+    mat_a_rearr[3] = _mm256_setzero_pd();
+
     for(i = 0; i < k_iter; i++)
     {
 	ptr_b01_dup = b01;
@@ -917,11 +1155,6 @@ static void blis_dtrsm_microkernel_AlXB_large(
 	mat_a10_col[1] = _mm256_loadu_pd((double const *)(a10 + cs_a));
 	mat_a10_col[2] = _mm256_loadu_pd((double const *)(a10 + cs_a_offset[0]));
 	mat_a10_col[3] = _mm256_loadu_pd((double const *)(a10 + cs_a_offset[1]));
-
-        mat_a_rearr[0] = _mm256_setzero_pd();
-        mat_a_rearr[1] = _mm256_setzero_pd();
-        mat_a_rearr[2] = _mm256_setzero_pd();
-        mat_a_rearr[3] = _mm256_setzero_pd();
 
         mat_b01_col[0] = _mm256_broadcast_sd((double const *)(b01 + cs_b * 0));
         mat_b01_col[1] = _mm256_broadcast_sd((double const *)(b01 + cs_b * 1));
@@ -971,21 +1204,15 @@ static void blis_dtrsm_microkernel_AlXB_large(
 	mat_a_rearr[2] = _mm256_fmadd_pd(mat_b01_col[2], mat_a10_col[3], mat_a_rearr[2]);
 	mat_a_rearr[3] = _mm256_fmadd_pd(mat_b01_col[3], mat_a10_col[3], mat_a_rearr[3]);
 
-        _mm256_storeu_pd((double *)b11, mat_a_rearr[0]);
-        _mm256_storeu_pd((double *)(b11 + (cs_b)), mat_a_rearr[1]);
-        _mm256_storeu_pd((double *)(b11 + cs_b_offset[0]), mat_a_rearr[2]);
-        _mm256_storeu_pd((double *)(b11 + cs_b_offset[1]), mat_a_rearr[3]);
-
-
-	mat_b11_col[0] = _mm256_sub_pd(mat_b11_col[0], mat_a_rearr[0]);
-	mat_b11_col[1] = _mm256_sub_pd(mat_b11_col[1], mat_a_rearr[1]);
-	mat_b11_col[2] = _mm256_sub_pd(mat_b11_col[2], mat_a_rearr[2]);
-	mat_b11_col[3] = _mm256_sub_pd(mat_b11_col[3], mat_a_rearr[3]);
 
 	a10 += blk_size * cs_a;
 	b01 = ptr_b01_dup + blk_size;
 
     }
+	mat_b11_col[0] = _mm256_sub_pd(mat_b11_col[0], mat_a_rearr[0]);
+	mat_b11_col[1] = _mm256_sub_pd(mat_b11_col[1], mat_a_rearr[1]);
+	mat_b11_col[2] = _mm256_sub_pd(mat_b11_col[2], mat_a_rearr[2]);
+	mat_b11_col[3] = _mm256_sub_pd(mat_b11_col[3], mat_a_rearr[3]);
 
     ///implement TRSM///
     //1st col
@@ -1022,10 +1249,10 @@ static void blis_dtrsm_microkernel_AlXB_large(
         //rearrange low elements
         mat_b_rearr[0] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x20);
         mat_b_rearr[2] = _mm256_permute2f128_pd(mat_b_rearr[1],mat_b_rearr[3],0x31);
-/*
-        mat_b_rearr[0] = _mm256_mul_pd(mat_b_rearr[0], alphaReg);
-        mat_b_rearr[2] = _mm256_mul_pd(mat_b_rearr[2], alphaReg);
-*/
+
+//        mat_b_rearr[0] = _mm256_mul_pd(mat_b_rearr[0], alphaReg);
+ //       mat_b_rearr[2] = _mm256_mul_pd(mat_b_rearr[2], alphaReg);
+
         ////unpackhigh////
         mat_b11_col[0] = _mm256_unpackhi_pd(mat_b11_col[0], mat_b11_col[1]);
         mat_b11_col[1] = _mm256_unpackhi_pd(mat_b11_col[2], mat_b11_col[3]);
@@ -1033,10 +1260,10 @@ static void blis_dtrsm_microkernel_AlXB_large(
         //rearrange high elements
         mat_b_rearr[1] = _mm256_permute2f128_pd(mat_b11_col[0],mat_b11_col[1],0x20);
         mat_b_rearr[3] = _mm256_permute2f128_pd(mat_b11_col[0],mat_b11_col[1],0x31);
-/*
-        mat_b_rearr[1] = _mm256_mul_pd(mat_b_rearr[1], alphaReg);
-        mat_b_rearr[3] = _mm256_mul_pd(mat_b_rearr[3], alphaReg);
-*/
+
+//      mat_b_rearr[1] = _mm256_mul_pd(mat_b_rearr[1], alphaReg);
+//      mat_b_rearr[3] = _mm256_mul_pd(mat_b_rearr[3], alphaReg);
+
         //extract a00
         mat_a_diag_inv[0] = _mm256_permute_pd(reciprocal_diags, 0x00);
         mat_a_diag_inv[0] = _mm256_permute2f128_pd(mat_a_diag_inv[0], mat_a_diag_inv[0], 0x00);
@@ -1101,7 +1328,7 @@ static void blis_dtrsm_microkernel_AlXB_large(
 
 
 }
-
+*/
 /*
  * AX = Alpha*B, Single precision, A: lower triangular
  * This kernel implementation supports matrices A and B such that m is equal to BLI_AlXB_M_SP and n is mutiple of 8
