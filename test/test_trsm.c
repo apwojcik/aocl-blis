@@ -36,7 +36,7 @@
 #include "blis.h"
 
 
-#define PRINT
+//#define PRINT
 
 int main( int argc, char** argv )
 {
@@ -45,7 +45,7 @@ int main( int argc, char** argv )
 	obj_t alpha;
 	dim_t m, n;
 	dim_t p;
-	dim_t  p_begin, p_end, p_inc;
+	dim_t p_begin, p_end, p_inc;
 	int   m_input, n_input;
 	num_t dt;
 	int   r, n_repeats;
@@ -57,7 +57,7 @@ int main( int argc, char** argv )
 	f77_char f77_uploa;
 	f77_char f77_transa;
 	f77_char f77_diaga;
-	int i,j;
+
 	double dtime;
 	double dtime_save;
 	double gflops;
@@ -66,26 +66,26 @@ int main( int argc, char** argv )
 
 	//bli_error_checking_level_set( BLIS_NO_ERROR_CHECKING );
 
-	n_repeats = 1;
+	n_repeats = 3;
 
 #ifndef PRINT
+	p_begin = 200;
+	p_end   = 2000;
+	p_inc   = 200;
+
+	m_input = -1;
+	n_input = -1;
+#else
 	p_begin = 16;
-	p_end   = 20;
+	p_end   = 16;
 	p_inc   = 1;
 
 	m_input = 4;
-	n_input = 3;
-#else
-	p_begin = 4;
-	p_end   = 64;
-	p_inc   = 4;
-
-	m_input = 9;
-	n_input = 9;
+	n_input = 4;
 #endif
 
 #if 1
-//	dt = BLIS_FLOAT;
+	//dt = BLIS_FLOAT;
 	dt = BLIS_DOUBLE;
 #else
 	//dt = BLIS_SCOMPLEX;
@@ -93,7 +93,7 @@ int main( int argc, char** argv )
 #endif
 
 	side = BLIS_LEFT;
-//	side = BLIS_RIGHT;
+	//side = BLIS_RIGHT;
 
 	uploa = BLIS_LOWER;
 	//uploa = BLIS_UPPER;
@@ -130,7 +130,7 @@ int main( int argc, char** argv )
 		bli_obj_create( dt, 1, 1, 0, 0, &alpha );
 
 		if ( bli_is_left( side ) )
-			bli_obj_create( dt, m, m, 1, m, &a );
+			bli_obj_create( dt, m, m, 0, 0, &a );
 		else
 			bli_obj_create( dt, n, n, 0, 0, &a );
 		bli_obj_create( dt, m, n, 0, 0, &c );
@@ -234,11 +234,18 @@ int main( int argc, char** argv )
 
 		fclose(file);
 
+		bli_randm( &a );
+		bli_randm( &c );
+
 		bli_obj_set_struc( BLIS_TRIANGULAR, &a );
 		bli_obj_set_uplo( uploa, &a );
 		bli_obj_set_conjtrans( transa, &a );
 		bli_obj_set_diag( diaga, &a );
 
+		// Randomize A and zero the unstored triangle to ensure the
+		// implementation reads only from the stored region.
+		bli_randm( &a );
+		bli_mktrim( &a );
 
 		// Randomize A, make it densely Hermitian, and zero the unstored
 		// triangle to ensure the implementation reads only from the stored
@@ -248,7 +255,7 @@ int main( int argc, char** argv )
 		bli_mktrim( &a );
 
 		// Load the diagonal of A to make it more likely to be invertible.
-//		bli_shiftd( &BLIS_TWO, &a );
+		bli_shiftd( &BLIS_TWO, &a );
 
 		bli_setsc(  (2.0/1.0), 1.0, &alpha );
 
@@ -266,9 +273,9 @@ int main( int argc, char** argv )
 
 
 #ifdef PRINT
-			//bli_invertd( &a );
+			bli_invertd( &a );
 			bli_printm( "a", &a, "%4.1f", "" );
-			//bli_invertd( &a );
+			bli_invertd( &a );
 			bli_printm( "c", &c, "%4.1f", "" );
 #endif
 
@@ -363,7 +370,7 @@ int main( int argc, char** argv )
 #endif
 
 #ifdef PRINT
-			bli_printm( "c after", &c, "%4.1f", "" );
+			bli_printm( "c after", &c, "%9.5f", "" );
 			exit(1);
 #endif
 
