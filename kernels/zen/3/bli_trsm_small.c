@@ -1475,7 +1475,7 @@ static err_t bli_dtrsm_small_XAuB(
 
     int i = 0;
     int j;
-    int blk_size = 4;
+//    int blk_size = 4;
 //    int isUnitDiag = bli_obj_has_unit_diag(a);
 
     double alphaVal = *(double *)AlphaObj->buffer;
@@ -1484,9 +1484,9 @@ static err_t bli_dtrsm_small_XAuB(
 
     double *a01, *a11, *b10, *b11, *c11;
 
-    for(i = 0; i+blk_size-1 < m; i += blk_size)
+    for(i = 0; i+D_MR-1 < m; i += D_MR)
     {
-	for(j = 0; j+blk_size-1 < n; j += blk_size)
+	for(j = 0; j+D_NR-1 < n; j += D_NR)
 	{
 	    a01 = L + j*lda;
 	    a11 = L + j*lda + j;
@@ -1494,11 +1494,12 @@ static err_t bli_dtrsm_small_XAuB(
 	    b11 = B + i + j*ldb;
 	    c11 = B + i + j*ldb;
 	    blis_dtrsm_microkernel_XAuB_large(j, alphaVal, a01, a11, b10, b11, c11, lda, ldb);
+	    bli_printm("B after every iteration", b, "%2.1f", "");
 	}
     }
     return BLIS_SUCCESS;
 }
-
+/*
 static void blis_dtrsm_microkernel_XAuB_large(
 					int k,
 					double AlphaVal,
@@ -1687,7 +1688,7 @@ static void blis_dtrsm_microkernel_XAuB_large(
 
 
 }
-/*
+
 static void blis_dtrsm_microkernel_XAuB_large(
 					int k,
 					double AlphaVal,
@@ -1700,22 +1701,23 @@ static void blis_dtrsm_microkernel_XAuB_large(
 					int cs_b
 					)
 {
-    int blk_size = 4;
-    int k_iter = k / blk_size;
+    int k_iter = k / D_NR;
     int i;
 
     int cs_b_offset[2];
 
     double ones = 1.0;
     double *ptr_a01_dup;
-
-    __m256d mat_a01_col[blk_size];
+    double *ptr_b11_dup;
+    double *ptr_b11_dup1;
+    double *ptr_b10_dup;
+    __m256d mat_a01_col[D_NR];
     __m256d mat_a_cols_rearr[10];
-    __m256d mat_b10_col[blk_size];
-    __m256d mat_b11_col[blk_size];
+    __m256d mat_b10_col[D_MR];
+    __m256d mat_b11_col[D_MR];
     __m256d reciprocal_diags;
-    __m256d mat_a_rearr[blk_size];
-    __m256d mat_a_diag_inv[blk_size];
+    __m256d mat_a_rearr[D_MR];
+    __m256d mat_a_diag_inv[D_NR];
 
     reciprocal_diags = _mm256_broadcast_sd((double const *)&ones);
 
@@ -1724,25 +1726,46 @@ static void blis_dtrsm_microkernel_XAuB_large(
 
     ///GEMM for previous blocks ///
 
+    ptr_b11_dup = ptr_b11_dup1 = b11;
+
     ///load 4x4 block of b11
     mat_b11_col[0] = _mm256_loadu_pd((double const *)b11);
     mat_b11_col[1] = _mm256_loadu_pd((double const *)(b11 + cs_b));
     mat_b11_col[2] = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[0]));
     mat_b11_col[3] = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[1]));
 
+    b11 += D_NR;
+
+    mat_b11_col[4] = _mm256_loadu_pd((double const *)b11);
+    mat_b11_col[5] = _mm256_loadu_pd((double const *)(b11 + cs_b));
+    mat_b11_col[6] = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[0]));
+    mat_b11_col[7] = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[1]));
+
+
     mat_a_rearr[0] = _mm256_setzero_pd();
     mat_a_rearr[1] = _mm256_setzero_pd();
     mat_a_rearr[2] = _mm256_setzero_pd();
     mat_a_rearr[3] = _mm256_setzero_pd();
+    mat_a_rearr[4] = _mm256_setzero_pd();
+    mat_a_rearr[5] = _mm256_setzero_pd();
+    mat_a_rearr[6] = _mm256_setzero_pd();
+    mat_a_rearr[7] = _mm256_setzero_pd();
 
     for(i = 0; i < k_iter; i++)
     {
 	ptr_a01_dup = a01;
-
+	ptr_b10_dup = b10;
 	mat_b10_col[0] = _mm256_loadu_pd((double const *)b10);
 	mat_b10_col[1] = _mm256_loadu_pd((double const *)(b10 + cs_b));
 	mat_b10_col[2] = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[0]));
 	mat_b10_col[3] = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[1]));
+
+	b10 += D_NR;
+
+	mat_b10_col[4] = _mm256_loadu_pd((double const *)b10);
+	mat_b10_col[5] = _mm256_loadu_pd((double const *)(b10 + cs_b));
+	mat_b10_col[6] = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[0]));
+	mat_b10_col[7] = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[1]));
 
 	mat_a01_col[0] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));
 	mat_a01_col[1] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));
@@ -1756,6 +1779,11 @@ static void blis_dtrsm_microkernel_XAuB_large(
 	mat_a_rearr[2] = _mm256_fmadd_pd(mat_a01_col[2], mat_b10_col[0], mat_a_rearr[2]);
 	mat_a_rearr[3] = _mm256_fmadd_pd(mat_a01_col[3], mat_b10_col[0], mat_a_rearr[3]);
 
+	mat_a_rearr[4] = _mm256_fmadd_pd(mat_a01_col[0], mat_b10_col[4], mat_a_rearr[4]);
+	mat_a_rearr[5] = _mm256_fmadd_pd(mat_a01_col[1], mat_b10_col[4], mat_a_rearr[5]);
+	mat_a_rearr[6] = _mm256_fmadd_pd(mat_a01_col[2], mat_b10_col[4], mat_a_rearr[6]);
+	mat_a_rearr[7] = _mm256_fmadd_pd(mat_a01_col[3], mat_b10_col[4], mat_a_rearr[7]);
+
 	mat_a01_col[0] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));
 	mat_a01_col[1] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));
 	mat_a01_col[2] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));
@@ -1767,6 +1795,11 @@ static void blis_dtrsm_microkernel_XAuB_large(
 	mat_a_rearr[1] = _mm256_fmadd_pd(mat_a01_col[1], mat_b10_col[1], mat_a_rearr[1]);
 	mat_a_rearr[2] = _mm256_fmadd_pd(mat_a01_col[2], mat_b10_col[1], mat_a_rearr[2]);
 	mat_a_rearr[3] = _mm256_fmadd_pd(mat_a01_col[3], mat_b10_col[1], mat_a_rearr[3]);
+
+	mat_a_rearr[4] = _mm256_fmadd_pd(mat_a01_col[0], mat_b10_col[5], mat_a_rearr[4]);
+	mat_a_rearr[5] = _mm256_fmadd_pd(mat_a01_col[1], mat_b10_col[5], mat_a_rearr[5]);
+	mat_a_rearr[6] = _mm256_fmadd_pd(mat_a01_col[2], mat_b10_col[5], mat_a_rearr[6]);
+	mat_a_rearr[7] = _mm256_fmadd_pd(mat_a01_col[3], mat_b10_col[5], mat_a_rearr[7]);
 
 	mat_a01_col[0] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));
 	mat_a01_col[1] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));
@@ -1780,6 +1813,11 @@ static void blis_dtrsm_microkernel_XAuB_large(
 	mat_a_rearr[2] = _mm256_fmadd_pd(mat_a01_col[2], mat_b10_col[2], mat_a_rearr[2]);
 	mat_a_rearr[3] = _mm256_fmadd_pd(mat_a01_col[3], mat_b10_col[2], mat_a_rearr[3]);
 
+	mat_a_rearr[4] = _mm256_fmadd_pd(mat_a01_col[0], mat_b10_col[6], mat_a_rearr[4]);
+	mat_a_rearr[5] = _mm256_fmadd_pd(mat_a01_col[1], mat_b10_col[6], mat_a_rearr[5]);
+	mat_a_rearr[6] = _mm256_fmadd_pd(mat_a01_col[2], mat_b10_col[6], mat_a_rearr[6]);
+	mat_a_rearr[7] = _mm256_fmadd_pd(mat_a01_col[3], mat_b10_col[6], mat_a_rearr[7]);
+
 	mat_a01_col[0] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));
 	mat_a01_col[1] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));
 	mat_a01_col[2] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));
@@ -1792,8 +1830,13 @@ static void blis_dtrsm_microkernel_XAuB_large(
 	mat_a_rearr[2] = _mm256_fmadd_pd(mat_a01_col[2], mat_b10_col[3], mat_a_rearr[2]);
 	mat_a_rearr[3] = _mm256_fmadd_pd(mat_a01_col[3], mat_b10_col[3], mat_a_rearr[3]);
 
-	b10 += blk_size * cs_b;
-	a01 = ptr_a01_dup + blk_size;
+	mat_a_rearr[4] = _mm256_fmadd_pd(mat_a01_col[0], mat_b10_col[7], mat_a_rearr[4]);
+	mat_a_rearr[5] = _mm256_fmadd_pd(mat_a01_col[1], mat_b10_col[7], mat_a_rearr[5]);
+	mat_a_rearr[6] = _mm256_fmadd_pd(mat_a01_col[2], mat_b10_col[7], mat_a_rearr[6]);
+	mat_a_rearr[7] = _mm256_fmadd_pd(mat_a01_col[3], mat_b10_col[7], mat_a_rearr[7]);
+
+	b10 = ptr_b10_dup + D_NR * cs_b;
+	a01 = ptr_a01_dup + D_NR;
 
     }
 
@@ -1801,6 +1844,25 @@ static void blis_dtrsm_microkernel_XAuB_large(
     mat_b11_col[1] = _mm256_sub_pd(mat_b11_col[1], mat_a_rearr[1]);
     mat_b11_col[2] = _mm256_sub_pd(mat_b11_col[2], mat_a_rearr[2]);
     mat_b11_col[3] = _mm256_sub_pd(mat_b11_col[3], mat_a_rearr[3]);
+
+    mat_b11_col[4] = _mm256_sub_pd(mat_b11_col[4], mat_a_rearr[4]);
+    mat_b11_col[5] = _mm256_sub_pd(mat_b11_col[5], mat_a_rearr[5]);
+    mat_b11_col[6] = _mm256_sub_pd(mat_b11_col[6], mat_a_rearr[6]);
+    mat_b11_col[7] = _mm256_sub_pd(mat_b11_col[7], mat_a_rearr[7]);
+
+
+    _mm256_storeu_pd((double *)ptr_b11_dup1, mat_b11_col[0]);
+    _mm256_storeu_pd((double *)(ptr_b11_dup1 + cs_b), mat_b11_col[1]);
+    _mm256_storeu_pd((double *)(ptr_b11_dup1 + cs_b_offset[0]), mat_b11_col[2]);
+    _mm256_storeu_pd((double *)(ptr_b11_dup1 + cs_b_offset[1]), mat_b11_col[3]);
+
+    ptr_b11_dup1 += D_NR;
+
+    _mm256_storeu_pd((double *)ptr_b11_dup1, mat_b11_col[4]);
+    _mm256_storeu_pd((double *)(ptr_b11_dup1 + cs_b), mat_b11_col[5]);
+    _mm256_storeu_pd((double *)(ptr_b11_dup1 + cs_b_offset[0]), mat_b11_col[6]);
+    _mm256_storeu_pd((double *)(ptr_b11_dup1 + cs_b_offset[1]), mat_b11_col[7]);
+
 
     ///implement TRSM///
 
@@ -1841,6 +1903,8 @@ static void blis_dtrsm_microkernel_XAuB_large(
 
     mat_b11_col[0] = _mm256_mul_pd(mat_b11_col[0], mat_a_diag_inv[0]);
 
+    mat_b11_col[4] = _mm256_mul_pd(mat_b11_col[4], mat_a_diag_inv[0]);
+
     //extract a11
     mat_a_diag_inv[1] = _mm256_permute_pd(reciprocal_diags, 0x03);
     mat_a_diag_inv[1] = _mm256_permute2f128_pd(mat_a_diag_inv[1], mat_a_diag_inv[1], 0x00);
@@ -1850,7 +1914,14 @@ static void blis_dtrsm_microkernel_XAuB_large(
     mat_b11_col[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[3], mat_b11_col[0], mat_b11_col[2]);
     mat_b11_col[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[6], mat_b11_col[0], mat_b11_col[3]);
 
+    mat_b11_col[5] = _mm256_fnmadd_pd(mat_a_cols_rearr[1], mat_b11_col[4], mat_b11_col[5]);
+    mat_b11_col[6] = _mm256_fnmadd_pd(mat_a_cols_rearr[3], mat_b11_col[4], mat_b11_col[6]);
+    mat_b11_col[7] = _mm256_fnmadd_pd(mat_a_cols_rearr[6], mat_b11_col[4], mat_b11_col[7]);
+
     mat_b11_col[1] = _mm256_mul_pd(mat_b11_col[1], mat_a_diag_inv[1]);
+
+    mat_b11_col[5] = _mm256_mul_pd(mat_b11_col[5], mat_a_diag_inv[1]);
+
     //extract a22
     mat_a_diag_inv[2] = _mm256_permute_pd(reciprocal_diags, 0x00);
     mat_a_diag_inv[2] = _mm256_permute2f128_pd(mat_a_diag_inv[2], mat_a_diag_inv[2], 0x11);
@@ -1859,7 +1930,12 @@ static void blis_dtrsm_microkernel_XAuB_large(
     mat_b11_col[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[4], mat_b11_col[1], mat_b11_col[2]);
     mat_b11_col[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[7], mat_b11_col[1], mat_b11_col[3]);
 
+    mat_b11_col[6] = _mm256_fnmadd_pd(mat_a_cols_rearr[4], mat_b11_col[5], mat_b11_col[6]);
+    mat_b11_col[7] = _mm256_fnmadd_pd(mat_a_cols_rearr[7], mat_b11_col[5], mat_b11_col[7]);
+
     mat_b11_col[2] = _mm256_mul_pd(mat_b11_col[2], mat_a_diag_inv[2]);
+
+    mat_b11_col[6] = _mm256_mul_pd(mat_b11_col[6], mat_a_diag_inv[2]);
 
     //extract a33
     mat_a_diag_inv[3] = _mm256_permute_pd(reciprocal_diags, 0x0C);
@@ -1868,17 +1944,275 @@ static void blis_dtrsm_microkernel_XAuB_large(
     //(Row3)FMA operations
     mat_b11_col[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[8], mat_b11_col[2], mat_b11_col[3]);
 
+    mat_b11_col[7] = _mm256_fnmadd_pd(mat_a_cols_rearr[8], mat_b11_col[6], mat_b11_col[7]);
+
     mat_b11_col[3] = _mm256_mul_pd(mat_b11_col[3], mat_a_diag_inv[3]);
 
+    mat_b11_col[7] = _mm256_mul_pd(mat_b11_col[7], mat_a_diag_inv[3]);
+
+    _mm256_storeu_pd((double *)ptr_b11_dup, mat_b11_col[0]);
+    _mm256_storeu_pd((double *)(ptr_b11_dup + cs_b), mat_b11_col[1]);
+    _mm256_storeu_pd((double *)(ptr_b11_dup + cs_b_offset[0]), mat_b11_col[2]);
+    _mm256_storeu_pd((double *)(ptr_b11_dup + cs_b_offset[1]), mat_b11_col[3]);
+
+    ptr_b11_dup += D_NR;
+
+    _mm256_storeu_pd((double *)ptr_b11_dup, mat_b11_col[4]);
+    _mm256_storeu_pd((double *)(ptr_b11_dup + cs_b), mat_b11_col[5]);
+    _mm256_storeu_pd((double *)(ptr_b11_dup + cs_b_offset[0]), mat_b11_col[6]);
+    _mm256_storeu_pd((double *)(ptr_b11_dup + cs_b_offset[1]), mat_b11_col[7]);
+
+
+
+}*/
+static void blis_dtrsm_microkernel_XAuB_large(
+					int k,
+					double AlphaVal,
+					double *a01,
+					double *a11,
+					double *b10,
+					double *b11,
+					double *c11,
+					int cs_a,
+					int cs_b
+					)
+{
+    int k_iter = k / D_NR;
+    int i;
+
+    int cs_b_offset[2];
+
+    double ones = 1.0;
+    double *ptr_a01_dup;
+    __m256d mat_a01_col[D_NR];
+    __m256d mat_a_cols_rearr[10];
+    __m256d mat_b10_col[D_MR];
+    __m256d mat_b11_col[D_MR];
+    __m256d reciprocal_diags;
+    __m256d mat_a_rearr[D_MR];
+    __m256d mat_a_diag_inv[D_NR];
+
+    reciprocal_diags = _mm256_broadcast_sd((double const *)&ones);
+
+    cs_b_offset[0] = cs_b << 1;
+    cs_b_offset[1] = cs_b_offset[0] + cs_b;
+    ///GEMM for previous blocks ///
+
+
+    ///load 4x4 block of b11
+    mat_b11_col[0] = _mm256_loadu_pd((double const *)(b11));
+    mat_b11_col[4] = _mm256_loadu_pd((double const *)(b11 + D_NR));
+    mat_b11_col[1] = _mm256_loadu_pd((double const *)(b11 + cs_b));
+    mat_b11_col[5] = _mm256_loadu_pd((double const *)(b11 + cs_b + D_NR));
+    mat_b11_col[2] = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[0]));
+    mat_b11_col[6] = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[0] + D_NR));
+    mat_b11_col[3] = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[1]));
+    mat_b11_col[7] = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[1] + D_NR));
+
+
+    mat_a_rearr[0] = _mm256_setzero_pd();
+    mat_a_rearr[1] = _mm256_setzero_pd();
+    mat_a_rearr[2] = _mm256_setzero_pd();
+    mat_a_rearr[3] = _mm256_setzero_pd();
+    mat_a_rearr[4] = _mm256_setzero_pd();
+    mat_a_rearr[5] = _mm256_setzero_pd();
+    mat_a_rearr[6] = _mm256_setzero_pd();
+    mat_a_rearr[7] = _mm256_setzero_pd();
+
+    for(i = 0; i < k_iter; i++)
+    {
+	ptr_a01_dup = a01;
+	mat_b10_col[0] = _mm256_loadu_pd((double const *)b10);
+	mat_b10_col[4] = _mm256_loadu_pd((double const *)(b10 + D_NR));
+	mat_b10_col[1] = _mm256_loadu_pd((double const *)(b10 + cs_b));
+	mat_b10_col[5] = _mm256_loadu_pd((double const *)(b10 + cs_b + D_NR));
+	mat_b10_col[2] = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[0]));
+	mat_b10_col[6] = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[0] + D_NR));
+	mat_b10_col[3] = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[0] + cs_b));
+	mat_b10_col[7] = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[0] + cs_b + D_NR));
+
+	mat_a01_col[0] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));
+	mat_a01_col[1] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));
+	mat_a01_col[2] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));
+	mat_a01_col[3] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));
+
+	a01 += 1;
+
+	mat_a_rearr[0] = _mm256_fmadd_pd(mat_a01_col[0], mat_b10_col[0], mat_a_rearr[0]);
+	mat_a_rearr[1] = _mm256_fmadd_pd(mat_a01_col[1], mat_b10_col[0], mat_a_rearr[1]);
+	mat_a_rearr[2] = _mm256_fmadd_pd(mat_a01_col[2], mat_b10_col[0], mat_a_rearr[2]);
+	mat_a_rearr[3] = _mm256_fmadd_pd(mat_a01_col[3], mat_b10_col[0], mat_a_rearr[3]);
+
+	mat_a_rearr[4] = _mm256_fmadd_pd(mat_a01_col[0], mat_b10_col[4], mat_a_rearr[4]);
+	mat_a_rearr[5] = _mm256_fmadd_pd(mat_a01_col[1], mat_b10_col[4], mat_a_rearr[5]);
+	mat_a_rearr[6] = _mm256_fmadd_pd(mat_a01_col[2], mat_b10_col[4], mat_a_rearr[6]);
+	mat_a_rearr[7] = _mm256_fmadd_pd(mat_a01_col[3], mat_b10_col[4], mat_a_rearr[7]);
+
+	mat_a01_col[0] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));
+	mat_a01_col[1] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));
+	mat_a01_col[2] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));
+	mat_a01_col[3] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));
+
+	a01 += 1;
+
+	mat_a_rearr[0] = _mm256_fmadd_pd(mat_a01_col[0], mat_b10_col[1], mat_a_rearr[0]);
+	mat_a_rearr[1] = _mm256_fmadd_pd(mat_a01_col[1], mat_b10_col[1], mat_a_rearr[1]);
+	mat_a_rearr[2] = _mm256_fmadd_pd(mat_a01_col[2], mat_b10_col[1], mat_a_rearr[2]);
+	mat_a_rearr[3] = _mm256_fmadd_pd(mat_a01_col[3], mat_b10_col[1], mat_a_rearr[3]);
+
+	mat_a_rearr[4] = _mm256_fmadd_pd(mat_a01_col[0], mat_b10_col[5], mat_a_rearr[4]);
+	mat_a_rearr[5] = _mm256_fmadd_pd(mat_a01_col[1], mat_b10_col[5], mat_a_rearr[5]);
+	mat_a_rearr[6] = _mm256_fmadd_pd(mat_a01_col[2], mat_b10_col[5], mat_a_rearr[6]);
+	mat_a_rearr[7] = _mm256_fmadd_pd(mat_a01_col[3], mat_b10_col[5], mat_a_rearr[7]);
+
+	mat_a01_col[0] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));
+	mat_a01_col[1] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));
+	mat_a01_col[2] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));
+	mat_a01_col[3] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));
+
+	a01 += 1;
+
+	mat_a_rearr[0] = _mm256_fmadd_pd(mat_a01_col[0], mat_b10_col[2], mat_a_rearr[0]);
+	mat_a_rearr[1] = _mm256_fmadd_pd(mat_a01_col[1], mat_b10_col[2], mat_a_rearr[1]);
+	mat_a_rearr[2] = _mm256_fmadd_pd(mat_a01_col[2], mat_b10_col[2], mat_a_rearr[2]);
+	mat_a_rearr[3] = _mm256_fmadd_pd(mat_a01_col[3], mat_b10_col[2], mat_a_rearr[3]);
+
+	mat_a_rearr[4] = _mm256_fmadd_pd(mat_a01_col[0], mat_b10_col[6], mat_a_rearr[4]);
+	mat_a_rearr[5] = _mm256_fmadd_pd(mat_a01_col[1], mat_b10_col[6], mat_a_rearr[5]);
+	mat_a_rearr[6] = _mm256_fmadd_pd(mat_a01_col[2], mat_b10_col[6], mat_a_rearr[6]);
+	mat_a_rearr[7] = _mm256_fmadd_pd(mat_a01_col[3], mat_b10_col[6], mat_a_rearr[7]);
+
+	mat_a01_col[0] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));
+	mat_a01_col[1] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));
+	mat_a01_col[2] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));
+	mat_a01_col[3] = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));
+
+	a01 += 1;
+
+	mat_a_rearr[0] = _mm256_fmadd_pd(mat_a01_col[0], mat_b10_col[3], mat_a_rearr[0]);
+	mat_a_rearr[1] = _mm256_fmadd_pd(mat_a01_col[1], mat_b10_col[3], mat_a_rearr[1]);
+	mat_a_rearr[2] = _mm256_fmadd_pd(mat_a01_col[2], mat_b10_col[3], mat_a_rearr[2]);
+	mat_a_rearr[3] = _mm256_fmadd_pd(mat_a01_col[3], mat_b10_col[3], mat_a_rearr[3]);
+
+	mat_a_rearr[4] = _mm256_fmadd_pd(mat_a01_col[0], mat_b10_col[7], mat_a_rearr[4]);
+	mat_a_rearr[5] = _mm256_fmadd_pd(mat_a01_col[1], mat_b10_col[7], mat_a_rearr[5]);
+	mat_a_rearr[6] = _mm256_fmadd_pd(mat_a01_col[2], mat_b10_col[7], mat_a_rearr[6]);
+	mat_a_rearr[7] = _mm256_fmadd_pd(mat_a01_col[3], mat_b10_col[7], mat_a_rearr[7]);
+
+	b10 += D_NR * cs_b;
+	a01 = ptr_a01_dup + D_NR;
+
+    }
+
+    mat_b11_col[0] = _mm256_sub_pd(mat_b11_col[0], mat_a_rearr[0]);
+    mat_b11_col[1] = _mm256_sub_pd(mat_b11_col[1], mat_a_rearr[1]);
+    mat_b11_col[2] = _mm256_sub_pd(mat_b11_col[2], mat_a_rearr[2]);
+    mat_b11_col[3] = _mm256_sub_pd(mat_b11_col[3], mat_a_rearr[3]);
+
+    mat_b11_col[4] = _mm256_sub_pd(mat_b11_col[4], mat_a_rearr[4]);
+    mat_b11_col[5] = _mm256_sub_pd(mat_b11_col[5], mat_a_rearr[5]);
+    mat_b11_col[6] = _mm256_sub_pd(mat_b11_col[6], mat_a_rearr[6]);
+    mat_b11_col[7] = _mm256_sub_pd(mat_b11_col[7], mat_a_rearr[7]);
+
+    ///implement TRSM///
+
+    ///read 4x4 block of A11///
+
+
+    //1st col
+    mat_a_cols_rearr[0] = _mm256_broadcast_sd((double const *)(a11+0));
+
+    //2nd col
+    a11 += cs_a;
+    mat_a_cols_rearr[1] = _mm256_broadcast_sd((double const *)(a11+0));
+    mat_a_cols_rearr[2] = _mm256_broadcast_sd((double const *)(a11+1));
+
+    //3rd col
+    a11 += cs_a;
+    mat_a_cols_rearr[3] = _mm256_broadcast_sd((double const *)(a11+0));
+    mat_a_cols_rearr[4] = _mm256_broadcast_sd((double const *)(a11+1));
+    mat_a_cols_rearr[5] = _mm256_broadcast_sd((double const *)(a11+2));
+
+    //4th col
+    a11 += cs_a;
+    mat_a_cols_rearr[6] = _mm256_broadcast_sd((double const *)(a11+0));
+    mat_a_cols_rearr[7] = _mm256_broadcast_sd((double const *)(a11+1));
+    mat_a_cols_rearr[8] = _mm256_broadcast_sd((double const *)(a11+2));
+    mat_a_cols_rearr[9] = _mm256_broadcast_sd((double const *)(a11+3));
+
+    //compute reciprocals of L(i,i) and broadcast in registers
+    mat_a_diag_inv[0] = _mm256_unpacklo_pd(mat_a_cols_rearr[0], mat_a_cols_rearr[2]);
+    mat_a_diag_inv[1] = _mm256_unpacklo_pd(mat_a_cols_rearr[5], mat_a_cols_rearr[9]);
+
+    mat_a_diag_inv[0] = _mm256_blend_pd(mat_a_diag_inv[0], mat_a_diag_inv[1], 0x0C);
+    reciprocal_diags = _mm256_div_pd(reciprocal_diags, mat_a_diag_inv[0]);
+
+    //extract a00
+    mat_a_diag_inv[0] = _mm256_permute_pd(reciprocal_diags, 0x00);
+    mat_a_diag_inv[0] = _mm256_permute2f128_pd(mat_a_diag_inv[0], mat_a_diag_inv[0], 0x00);
+
+    mat_b11_col[0] = _mm256_mul_pd(mat_b11_col[0], mat_a_diag_inv[0]);
+
+    mat_b11_col[4] = _mm256_mul_pd(mat_b11_col[4], mat_a_diag_inv[0]);
+
+    //extract a11
+    mat_a_diag_inv[1] = _mm256_permute_pd(reciprocal_diags, 0x03);
+    mat_a_diag_inv[1] = _mm256_permute2f128_pd(mat_a_diag_inv[1], mat_a_diag_inv[1], 0x00);
+
+    //(Row1): FMA operations
+    mat_b11_col[1] = _mm256_fnmadd_pd(mat_a_cols_rearr[1], mat_b11_col[0], mat_b11_col[1]);
+    mat_b11_col[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[3], mat_b11_col[0], mat_b11_col[2]);
+    mat_b11_col[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[6], mat_b11_col[0], mat_b11_col[3]);
+
+    mat_b11_col[5] = _mm256_fnmadd_pd(mat_a_cols_rearr[1], mat_b11_col[4], mat_b11_col[5]);
+    mat_b11_col[6] = _mm256_fnmadd_pd(mat_a_cols_rearr[3], mat_b11_col[4], mat_b11_col[6]);
+    mat_b11_col[7] = _mm256_fnmadd_pd(mat_a_cols_rearr[6], mat_b11_col[4], mat_b11_col[7]);
+
+    mat_b11_col[1] = _mm256_mul_pd(mat_b11_col[1], mat_a_diag_inv[1]);
+
+    mat_b11_col[5] = _mm256_mul_pd(mat_b11_col[5], mat_a_diag_inv[1]);
+
+    //extract a22
+    mat_a_diag_inv[2] = _mm256_permute_pd(reciprocal_diags, 0x00);
+    mat_a_diag_inv[2] = _mm256_permute2f128_pd(mat_a_diag_inv[2], mat_a_diag_inv[2], 0x11);
+
+    //(Row2)FMA operations
+    mat_b11_col[2] = _mm256_fnmadd_pd(mat_a_cols_rearr[4], mat_b11_col[1], mat_b11_col[2]);
+    mat_b11_col[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[7], mat_b11_col[1], mat_b11_col[3]);
+
+    mat_b11_col[6] = _mm256_fnmadd_pd(mat_a_cols_rearr[4], mat_b11_col[5], mat_b11_col[6]);
+    mat_b11_col[7] = _mm256_fnmadd_pd(mat_a_cols_rearr[7], mat_b11_col[5], mat_b11_col[7]);
+
+    mat_b11_col[2] = _mm256_mul_pd(mat_b11_col[2], mat_a_diag_inv[2]);
+
+    mat_b11_col[6] = _mm256_mul_pd(mat_b11_col[6], mat_a_diag_inv[2]);
+
+    //extract a33
+    mat_a_diag_inv[3] = _mm256_permute_pd(reciprocal_diags, 0x0C);
+    mat_a_diag_inv[3] = _mm256_permute2f128_pd(mat_a_diag_inv[3], mat_a_diag_inv[3], 0x11);
+
+    //(Row3)FMA operations
+    mat_b11_col[3] = _mm256_fnmadd_pd(mat_a_cols_rearr[8], mat_b11_col[2], mat_b11_col[3]);
+
+    mat_b11_col[7] = _mm256_fnmadd_pd(mat_a_cols_rearr[8], mat_b11_col[6], mat_b11_col[7]);
+
+    mat_b11_col[3] = _mm256_mul_pd(mat_b11_col[3], mat_a_diag_inv[3]);
+
+    mat_b11_col[7] = _mm256_mul_pd(mat_b11_col[7], mat_a_diag_inv[3]);
+
     _mm256_storeu_pd((double *)b11, mat_b11_col[0]);
+    _mm256_storeu_pd((double *)(b11 + D_NR), mat_b11_col[4]);
     _mm256_storeu_pd((double *)(b11 + cs_b), mat_b11_col[1]);
+    _mm256_storeu_pd((double *)(b11 + cs_b + D_NR), mat_b11_col[5]);
     _mm256_storeu_pd((double *)(b11 + cs_b_offset[0]), mat_b11_col[2]);
-    _mm256_storeu_pd((double *)(b11 + cs_b_offset[1]), mat_b11_col[3]);
+    _mm256_storeu_pd((double *)(b11 + cs_b_offset[0] + D_NR), mat_b11_col[6]);
+    _mm256_storeu_pd((double *)(b11 + cs_b_offset[0] + cs_b), mat_b11_col[3]);
+    _mm256_storeu_pd((double *)(b11 + cs_b_offset[0] + cs_b + D_NR), mat_b11_col[7]);
 
 
 
 }
-*/
+
 
 /*
  * AX = Alpha*B, Single precision, A: lower triangular
