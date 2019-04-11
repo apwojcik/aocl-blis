@@ -1554,6 +1554,7 @@ static void blis_dtrsm_microkernel_XAuB_large_4x4(
     cs_b_offset[0] = cs_b << 1;
     cs_b_offset[1] = cs_b + cs_b_offset[0];
 
+    ymm15 = _mm256_broadcast_sd((double const *)&AlphaVal);
     ///GEMM for previous blocks ///
 
     ///load 4x4 block of b11
@@ -1561,6 +1562,12 @@ static void blis_dtrsm_microkernel_XAuB_large_4x4(
     ymm1 = _mm256_loadu_pd((double const *)(b11 + cs_b));//B11[0][1] B11[1][1] B11[2][1] B11[3][1]
     ymm2 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[0]));//B11[0][2] B11[1][2] B11[2][2] B11[3][2]
     ymm3 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[1]));//B11[0][3] B11[1][3] B11[2][3] B11[3][3]
+
+    //multiply by alpha
+    ymm0 = _mm256_mul_pd(ymm0, ymm15);//B11[x][0] *= alpha
+    ymm1 = _mm256_mul_pd(ymm1, ymm15);//B11[x][1] *=alpha
+    ymm2 = _mm256_mul_pd(ymm2, ymm15);//B11[x][2] *= alpha
+    ymm3 = _mm256_mul_pd(ymm3, ymm15);//B11[x][3] *= alpha
 
     ymm4 = _mm256_setzero_pd();
     ymm5 = _mm256_setzero_pd();
@@ -2271,7 +2278,7 @@ static void blis_dtrsm_microkernel_XAuB_large_8x4(
     __m256d ymm4, ymm5, ymm6, ymm7;
     __m256d ymm8, ymm9, ymm10, ymm11;
     __m256d ymm12, ymm13, ymm14, ymm15;
-
+    __m256d ymm16;
 
     ///load 4x4 block of b11
 
@@ -2377,6 +2384,7 @@ static void blis_dtrsm_microkernel_XAuB_large_8x4(
 
     }
 
+    ymm16 = _mm256_broadcast_sd((double const *)&AlphaVal);
     //load 8x4 block of B11
     ymm8 = _mm256_loadu_pd((double const *)b11);//B11[0-3][0]
     ymm12 = _mm256_loadu_pd((double const *)(b11 + D_NR));//B11[4-7][0]
@@ -2386,6 +2394,16 @@ static void blis_dtrsm_microkernel_XAuB_large_8x4(
     ymm14 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[0] + D_NR));//B11[4-7][2]
     ymm11 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[1]));//B11[0-3][3]
     ymm15 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[1] + D_NR));//B11[4-7][3]
+
+    ymm8 = _mm256_mul_pd(ymm8, ymm16);
+    ymm9 = _mm256_mul_pd(ymm9, ymm16);
+    ymm10 = _mm256_mul_pd(ymm10, ymm16);
+    ymm11 = _mm256_mul_pd(ymm11, ymm16);
+    ymm12 = _mm256_mul_pd(ymm12, ymm16);
+    ymm13 = _mm256_mul_pd(ymm13, ymm16);
+    ymm14 = _mm256_mul_pd(ymm14, ymm16);
+    ymm15 = _mm256_mul_pd(ymm15, ymm16);
+
 
     ymm8 = _mm256_sub_pd(ymm8, ymm0);//B11[0-3][0] -= ymm0
     ymm9 = _mm256_sub_pd(ymm9, ymm1);//B11[4-7][0] -= ymm1
