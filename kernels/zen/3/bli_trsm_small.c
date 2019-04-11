@@ -1557,10 +1557,10 @@ static void blis_dtrsm_microkernel_XAuB_large_4x4(
     ///GEMM for previous blocks ///
 
     ///load 4x4 block of b11
-    ymm0 = _mm256_loadu_pd((double const *)b11);
-    ymm1 = _mm256_loadu_pd((double const *)(b11 + cs_b));
-    ymm2 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[0]));
-    ymm3 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[1]));
+    ymm0 = _mm256_loadu_pd((double const *)b11);//B11[0][0] B11[1][0] B11[2][0] B11[3][0]
+    ymm1 = _mm256_loadu_pd((double const *)(b11 + cs_b));//B11[0][1] B11[1][1] B11[2][1] B11[3][1]
+    ymm2 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[0]));//B11[0][2] B11[1][2] B11[2][2] B11[3][2]
+    ymm3 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[1]));//B11[0][3] B11[1][3] B11[2][3] B11[3][3]
 
     ymm4 = _mm256_setzero_pd();
     ymm5 = _mm256_setzero_pd();
@@ -1571,58 +1571,63 @@ static void blis_dtrsm_microkernel_XAuB_large_4x4(
     {
 	ptr_a01_dup = a01;
 
-	ymm8 = _mm256_loadu_pd((double const *)b10);
-	ymm9 = _mm256_loadu_pd((double const *)(b10 + cs_b));
-	ymm10 = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[0]));
-	ymm11 = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[1]));
+	//load 4x4 bblock of b10
+	ymm8 = _mm256_loadu_pd((double const *)b10);//B10[0][0] B10[1][0] B10[2][0] B10[3][0]
+	ymm9 = _mm256_loadu_pd((double const *)(b10 + cs_b));//B10[0][1] B10[1][1] B10[2][1] B10[3][1]
+	ymm10 = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[0]));//B10[0][2] B10[1][2] B10[2][2] B10[3][2]
+	ymm11 = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[1]));//B10[0][3] B10[1][3] B10[2][3] B10[3][3]
 
-	ymm12 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));
-	ymm13 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));
-	ymm14 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));
-	ymm15 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));
-
-	a01 += 1;
-
-	ymm4 = _mm256_fmadd_pd(ymm12, ymm8, ymm4);
-	ymm5 = _mm256_fmadd_pd(ymm13, ymm8, ymm5);
- 	ymm6 = _mm256_fmadd_pd(ymm14, ymm8, ymm6);
-	ymm7 = _mm256_fmadd_pd(ymm15, ymm8, ymm7);
-
-	ymm12 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));
-	ymm13 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));
-	ymm14 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));
-	ymm15 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));
+	//broadcast 1st row of A01
+	ymm12 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));//A01[0][0]
+	ymm13 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));//A01[0][1]
+	ymm14 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));//A01[0][2]
+	ymm15 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));//A01[0][3]
 
 	a01 += 1;
 
-	ymm4 = _mm256_fmadd_pd(ymm12, ymm9, ymm4);
-	ymm5 = _mm256_fmadd_pd(ymm13, ymm9, ymm5);
- 	ymm6 = _mm256_fmadd_pd(ymm14, ymm9, ymm6);
-	ymm7 = _mm256_fmadd_pd(ymm15, ymm9, ymm7);
+	ymm4 = _mm256_fmadd_pd(ymm12, ymm8, ymm4);//ymm4 += (B10[0][0]*A01[0][0] B10[1][0]*A01[0][0] B10[2][0]*A01[0][0] B10[3][0]*A01[0][0])
+	ymm5 = _mm256_fmadd_pd(ymm13, ymm8, ymm5);//ymm5 += (B10[0][0]*A01[0][1] B10[1][0]*A01[0][1] B10[2][0]*A01[0][1] B10[3][0]*A01[0][1])
+ 	ymm6 = _mm256_fmadd_pd(ymm14, ymm8, ymm6);//ymm6 += (B10[0][0]*A01[0][2] B10[1][0]*A01[0][2] B10[2][0]*A01[0][2] B10[3][0]*A01[0][2])
+	ymm7 = _mm256_fmadd_pd(ymm15, ymm8, ymm7);//ymm7 += (B10[0][0]*A01[0][3] B10[1][0]*A01[0][3] B10[2][0]*A01[0][3] B10[3][0]*A01[0][3])
 
-	ymm12 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));
-	ymm13 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));
-	ymm14 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));
-	ymm15 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));
-
-	a01 += 1;
-
-	ymm4 = _mm256_fmadd_pd(ymm12, ymm10, ymm4);
-	ymm5 = _mm256_fmadd_pd(ymm13, ymm10, ymm5);
- 	ymm6 = _mm256_fmadd_pd(ymm14, ymm10, ymm6);
-	ymm7 = _mm256_fmadd_pd(ymm15, ymm10, ymm7);
-
-	ymm12 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));
-	ymm13 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));
-	ymm14 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));
-	ymm15 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));
+	//broadcast 2nd row of A01
+	ymm12 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));//A01[1][0]
+	ymm13 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));//A01[1][1]
+	ymm14 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));//A01[1][2]
+	ymm15 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));//A01[1][3]
 
 	a01 += 1;
 
-	ymm4 = _mm256_fmadd_pd(ymm12, ymm11, ymm4);
-	ymm5 = _mm256_fmadd_pd(ymm13, ymm11, ymm5);
- 	ymm6 = _mm256_fmadd_pd(ymm14, ymm11, ymm6);
-	ymm7 = _mm256_fmadd_pd(ymm15, ymm11, ymm7);
+	ymm4 = _mm256_fmadd_pd(ymm12, ymm9, ymm4);//ymm4 += (B10[0][1]*A01[1][0] B10[1][1]*A01[1][0] B10[2][1]*A01[1][0] B10[3][1]*A01[1][0])
+	ymm5 = _mm256_fmadd_pd(ymm13, ymm9, ymm5);//ymm5 += (B10[0][1]*A01[1][1] B10[1][1]*A01[1][1] B10[2][1]*A01[1][1] B10[3][1]*A01[1][1])
+ 	ymm6 = _mm256_fmadd_pd(ymm14, ymm9, ymm6);//ymm6 += (B10[0][1]*A01[1][2] B10[1][1]*A01[1][2] B10[2][1]*A01[1][2] B10[3][1]*A01[1][2])
+	ymm7 = _mm256_fmadd_pd(ymm15, ymm9, ymm7);//ymm7 += (B10[0][1]*A01[1][3] B10[1][1]*A01[1][3] B10[2][1]*A01[1][3] B10[3][1]*A01[1][3])
+
+	//braodcast 3rd row of A01
+	ymm12 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));//A01[2][0]
+	ymm13 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));//A01[2][1]
+	ymm14 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));//A01[2][2]
+	ymm15 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));//A01[2][3]
+
+	a01 += 1;
+
+	ymm4 = _mm256_fmadd_pd(ymm12, ymm10, ymm4);//ymm4 += (B10[0][2]*A01[2][0] B10[1][2]*A01[2][0] B10[2][2]*A01[2][0] B10[3][2]*A01[2][0])
+	ymm5 = _mm256_fmadd_pd(ymm13, ymm10, ymm5);//ymm5 += (B10[0][2]*A01[2][1] B10[1][2]*A01[2][1] B10[2][2]*A01[2][1] B10[3][2]*A01[2][1])
+ 	ymm6 = _mm256_fmadd_pd(ymm14, ymm10, ymm6);//ymm6 += (B10[0][2]*A01[2][2] B10[1][2]*A01[2][2] B10[2][2]*A01[2][2] B10[3][2]*A01[2][2])
+	ymm7 = _mm256_fmadd_pd(ymm15, ymm10, ymm7);//ymm7 += (B10[0][2]*A01[2][3] B10[1][2]*A01[2][3] B10[2][2]*A01[2][3] B10[3][2]*A01[2][3])
+
+	//broadcast 4th row of A01
+	ymm12 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));//A01[3][0]
+	ymm13 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));//A01[3][1]
+	ymm14 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));//A01[3][2]
+	ymm15 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));//A01[3][3]
+
+	a01 += 1;
+
+	ymm4 = _mm256_fmadd_pd(ymm12, ymm11, ymm4);//ymm4 += (B10[0][3]*A01[3][0] B10[1][3]*A01[3][0] B10[2][3]*A01[3][0] B10[3][3]*A01[3][0])
+	ymm5 = _mm256_fmadd_pd(ymm13, ymm11, ymm5);//ymm5 += (B10[0][3]*A01[3][1] B10[1][3]*A01[3][1] B10[2][3]*A01[3][1] B10[3][3]*A01[3][1])
+ 	ymm6 = _mm256_fmadd_pd(ymm14, ymm11, ymm6);//ymm6 += (B10[0][3]*A01[3][2] B10[1][3]*A01[3][2] B10[2][3]*A01[3][2] B10[3][3]*A01[3][2])
+	ymm7 = _mm256_fmadd_pd(ymm15, ymm11, ymm7);//ymm7 += (B10[0][3]*A01[3][3] B10[1][3]*A01[3][3] B10[2][3]*A01[3][3] B10[3][3]*A01[3][3])
 
 
 	b10 += blk_size * cs_b;
@@ -1630,10 +1635,10 @@ static void blis_dtrsm_microkernel_XAuB_large_4x4(
 
     }
 
-    ymm0 = _mm256_sub_pd(ymm0, ymm4);
-    ymm1 = _mm256_sub_pd(ymm1, ymm5);
-    ymm2 = _mm256_sub_pd(ymm2, ymm6);
-    ymm3 = _mm256_sub_pd(ymm3, ymm7);
+    ymm0 = _mm256_sub_pd(ymm0, ymm4);//B11[x][0] -=ymm4
+    ymm1 = _mm256_sub_pd(ymm1, ymm5);//B11[x][1] -= ymm5
+    ymm2 = _mm256_sub_pd(ymm2, ymm6);//B11[x][2] -= ymm6
+    ymm3 = _mm256_sub_pd(ymm3, ymm7);//B11[x][3] -= ymm7
 
     ///implement TRSM///
 
@@ -1641,74 +1646,74 @@ static void blis_dtrsm_microkernel_XAuB_large_4x4(
 
 
     //1st col
-    ymm4 = _mm256_broadcast_sd((double const *)(a11+0));
+    ymm4 = _mm256_broadcast_sd((double const *)(a11+0));//A11[0][0]
 
     //2nd col
     a11 += cs_a;
-    ymm5 = _mm256_broadcast_sd((double const *)(a11+0));
-    ymm6 = _mm256_broadcast_sd((double const *)(a11+1));
+    ymm5 = _mm256_broadcast_sd((double const *)(a11+0));//A11[0][1]
+    ymm6 = _mm256_broadcast_sd((double const *)(a11+1));//A11[1][1]
 
     //3rd col
     a11 += cs_a;
-    ymm7 = _mm256_broadcast_sd((double const *)(a11+0));
-    ymm8 = _mm256_broadcast_sd((double const *)(a11+1));
-    ymm9 = _mm256_broadcast_sd((double const *)(a11+2));
+    ymm7 = _mm256_broadcast_sd((double const *)(a11+0));//A11[0][2]
+    ymm8 = _mm256_broadcast_sd((double const *)(a11+1));//A11[1][2]
+    ymm9 = _mm256_broadcast_sd((double const *)(a11+2));//A11[2][2]
 
     //4th col
     a11 += cs_a;
-    ymm10 = _mm256_broadcast_sd((double const *)(a11+0));
-    ymm11 = _mm256_broadcast_sd((double const *)(a11+1));
-    ymm12 = _mm256_broadcast_sd((double const *)(a11+2));
-    ymm13 = _mm256_broadcast_sd((double const *)(a11+3));
+    ymm10 = _mm256_broadcast_sd((double const *)(a11+0));//A11[0][3]
+    ymm11 = _mm256_broadcast_sd((double const *)(a11+1));//A11[1][3]
+    ymm12 = _mm256_broadcast_sd((double const *)(a11+2));//A11[2][3]
+    ymm13 = _mm256_broadcast_sd((double const *)(a11+3));//A11[3][3]
 
     ymm14 = _mm256_broadcast_sd((double const *)&ones);
 
-    //compute reciprocals of L(i,i) and broadcast in registers
-    ymm4 = _mm256_unpacklo_pd(ymm4, ymm6);
-    ymm6 = _mm256_unpacklo_pd(ymm9, ymm13);
+    //compute reciprocals of A(i,i) and broadcast in registers
+    ymm4 = _mm256_unpacklo_pd(ymm4, ymm6);//A11[0][0] A11[1][1] A11[0][0] A11[1][1]
+    ymm6 = _mm256_unpacklo_pd(ymm9, ymm13);//A11[2][2] A11[3][3] A11[2][2] A11[3][3]
 
-    ymm15 = _mm256_blend_pd(ymm4, ymm6, 0x0C);
-    ymm14 = _mm256_div_pd(ymm14, ymm15);
+    ymm15 = _mm256_blend_pd(ymm4, ymm6, 0x0C);//A11[0][0] A11[1][1] A11[2][2] A11[3][3]
+    ymm14 = _mm256_div_pd(ymm14, ymm15);// 1/A11[0][0] 1/A11[1][1] 1/A11[2][2] 1/A11[3][3]
 
-    //extract a00
-    ymm15 = _mm256_permute_pd(ymm14, 0x00);
-    ymm15 = _mm256_permute2f128_pd(ymm15, ymm15, 0x00);
+    //extract A00
+    ymm15 = _mm256_permute_pd(ymm14, 0x00);//(1/A11[0][0] 1/A11[0][0] 1/A11[2][2] 1/A11[2][2])
+    ymm15 = _mm256_permute2f128_pd(ymm15, ymm15, 0x00);//(1/A11[0][0] 1/A11[0][0] 1/A11[0][0] 1/A11[0][0])
 
-    ymm0 = _mm256_mul_pd(ymm0, ymm15);
+    ymm0 = _mm256_mul_pd(ymm0, ymm15);//B11[x][0] /= A11[0][0]
 
     //extract a11
-    ymm15 = _mm256_permute_pd(ymm14, 0x03);
-    ymm15 = _mm256_permute2f128_pd(ymm15, ymm15, 0x00);
+    ymm15 = _mm256_permute_pd(ymm14, 0x03);//(1/A11[1][1] 1/A11[1][1] 1/A11[2][2] 1/A11[2][2])
+    ymm15 = _mm256_permute2f128_pd(ymm15, ymm15, 0x00);//(1/A11[1][1] 1/A11[1][1] 1/A11[1][1] 1/A11[1][1])
 
     //(Row1): FMA operations
-    ymm1 = _mm256_fnmadd_pd(ymm5, ymm0, ymm1);
-    ymm2 = _mm256_fnmadd_pd(ymm7, ymm0, ymm2);
-    ymm3 = _mm256_fnmadd_pd(ymm10, ymm0, ymm3);
+    ymm1 = _mm256_fnmadd_pd(ymm5, ymm0, ymm1);//B11[x][1] -= A11[0][1] * B11[x][0]
+    ymm2 = _mm256_fnmadd_pd(ymm7, ymm0, ymm2);//B11[x][2] -= A11[0][2] * B11[x][0]
+    ymm3 = _mm256_fnmadd_pd(ymm10, ymm0, ymm3);//B11[x][3] -= A11[0][3] * B11[x][0]
 
-    ymm1 = _mm256_mul_pd(ymm1, ymm15);
+    ymm1 = _mm256_mul_pd(ymm1, ymm15);//B11[x][1] /= A11[1][1]
     //extract a22
-    ymm15 = _mm256_permute_pd(ymm14, 0x00);
-    ymm15 = _mm256_permute2f128_pd(ymm15, ymm15, 0x11);
+    ymm15 = _mm256_permute_pd(ymm14, 0x00);//(1/A11[0][0] 1/A11[0][0] 1/A11[2][2] 1/A11[2][2])
+    ymm15 = _mm256_permute2f128_pd(ymm15, ymm15, 0x11);//(1/A11[2][2] 1/A11[2][2] 1/A11[2][2] 1/A11[2][2])
 
     //(Row2)FMA operations
-    ymm2 = _mm256_fnmadd_pd(ymm8, ymm1, ymm2);
-    ymm3 = _mm256_fnmadd_pd(ymm11, ymm1, ymm3);
+    ymm2 = _mm256_fnmadd_pd(ymm8, ymm1, ymm2);//B11[x][2] -= A11[1][2] * B11[x][1]
+    ymm3 = _mm256_fnmadd_pd(ymm11, ymm1, ymm3);//B11[x][3] -= A11[1][3] * B11[x][1]
 
-    ymm2 = _mm256_mul_pd(ymm2, ymm15);
+    ymm2 = _mm256_mul_pd(ymm2, ymm15);//B11[x][2] /= A11[2][2]
 
     //extract a33
-    ymm15 = _mm256_permute_pd(ymm14, 0x0C);
-    ymm15 = _mm256_permute2f128_pd(ymm15, ymm15, 0x11);
+    ymm15 = _mm256_permute_pd(ymm14, 0x0C);//(1/A11[0][0] 1/A11[0][0] 1/A11[3][3] 1/A11[3][3])
+    ymm15 = _mm256_permute2f128_pd(ymm15, ymm15, 0x11);//(1/A11[3][3] 1/A11[3][3] 1/A11[3][3] 1/A11[3][3])
 
     //(Row3)FMA operations
-    ymm3 = _mm256_fnmadd_pd(ymm12, ymm2, ymm3);
+    ymm3 = _mm256_fnmadd_pd(ymm12, ymm2, ymm3);//B11[x][3] -= A11[2][3] * B11[x][2]
 
-    ymm3 = _mm256_mul_pd(ymm3, ymm15);
+    ymm3 = _mm256_mul_pd(ymm3, ymm15);//B11[x][3] /= A11[3][3]
 
-    _mm256_storeu_pd((double *)b11, ymm0);
-    _mm256_storeu_pd((double *)(b11 + cs_b), ymm1);
-    _mm256_storeu_pd((double *)(b11 + cs_b_offset[0]), ymm2);
-    _mm256_storeu_pd((double *)(b11 + cs_b_offset[1]), ymm3);
+    _mm256_storeu_pd((double *)b11, ymm0);//store(B11[x][0])
+    _mm256_storeu_pd((double *)(b11 + cs_b), ymm1);//store(B11[x][1])
+    _mm256_storeu_pd((double *)(b11 + cs_b_offset[0]), ymm2);//(store(B11[x][2]))
+    _mm256_storeu_pd((double *)(b11 + cs_b_offset[1]), ymm3);//store(B11[x][3])
 
 
 
@@ -2283,107 +2288,114 @@ static void blis_dtrsm_microkernel_XAuB_large_8x4(
     {
 	ptr_a01_dup = a01;
 
-	ymm8 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));
-	ymm9 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));
-	ymm10 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));
-	ymm11 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));
+	//broadcast 1st row of A01
+	ymm8 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));//A01[0][0]
+	ymm9 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));//A01[0][1]
+	ymm10 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));//A01[0][2]
+	ymm11 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));//A01[0][3]
 
 	a01 += 1;
 
-	ymm12 = _mm256_loadu_pd((double const *)b10);
-	ymm13 = _mm256_loadu_pd((double const *)(b10 + D_NR));
-	ymm14 = _mm256_loadu_pd((double const *)(b10 + cs_b));
-	ymm15 = _mm256_loadu_pd((double const *)(b10 + cs_b + D_NR));
+	//load 8x2 block of B10
+	ymm12 = _mm256_loadu_pd((double const *)b10);//B10[0][0] B10[1][0] B10[2][0] B10[3][0]
+	ymm13 = _mm256_loadu_pd((double const *)(b10 + D_NR));//B10[4][0] B10[5][0] B10[6][0] B10[7][0]
+	ymm14 = _mm256_loadu_pd((double const *)(b10 + cs_b));//B10[0][1] B10[1][1] B10[2][1] B10[3][1]
+	ymm15 = _mm256_loadu_pd((double const *)(b10 + cs_b + D_NR));//B10[4][1] B10[5][1] B10[6][1] B10[7][1]
 
-	ymm0 = _mm256_fmadd_pd(ymm8, ymm12, ymm0);
-	ymm1 = _mm256_fmadd_pd(ymm9, ymm12, ymm1);
-	ymm2 = _mm256_fmadd_pd(ymm10, ymm12, ymm2);
-	ymm3 = _mm256_fmadd_pd(ymm11, ymm12, ymm3);
+	ymm0 = _mm256_fmadd_pd(ymm8, ymm12, ymm0);//ymm0 += (B10[0][0]*A01[0][0] B10[1][0]*A01[0][0] B10[2][0]*A01[0][0] B10[3][0]*A01[0][0])
+	ymm1 = _mm256_fmadd_pd(ymm9, ymm12, ymm1);//ymm1 += (B10[0][0]*A01[0][1] B10[1][0]*A01[0][1] B10[2][0]*A01[0][1] B10[3][0]*A01[0][1])
+	ymm2 = _mm256_fmadd_pd(ymm10, ymm12, ymm2);//ymm2 += (B10[0][0]*A01[0][2] B10[1][0]*A01[0][2] B10[2][0]*A01[0][2] B10[3][0]*A01[0][2])
+	ymm3 = _mm256_fmadd_pd(ymm11, ymm12, ymm3);//ymm3 += (B10[0][0]*A01[0][3] B10[1][0]*A01[0][3] B10[2][0]*A01[0][3] B10[3][0]*A01[0][3])
 
-	ymm4 = _mm256_fmadd_pd(ymm8, ymm13, ymm4);
-	ymm5 = _mm256_fmadd_pd(ymm9, ymm13, ymm5);
-	ymm6 = _mm256_fmadd_pd(ymm10, ymm13, ymm6);
-	ymm7 = _mm256_fmadd_pd(ymm11, ymm13, ymm7);
+	ymm4 = _mm256_fmadd_pd(ymm8, ymm13, ymm4);//ymm4 += (B10[4][0]*A01[0][0] B10[5][0]*A01[0][0] B10[6][0]*A01[0][0] B10[7][0]*A01[0][0])
+	ymm5 = _mm256_fmadd_pd(ymm9, ymm13, ymm5);//ymm5 += (B10[4][0]*A01[0][1] B10[5][0]*A01[0][1] B10[6][0]*A01[0][1] B10[7][0]*A01[0][1])
+	ymm6 = _mm256_fmadd_pd(ymm10, ymm13, ymm6);//ymm6 += (B10[4][0]*A01[0][2] B10[5][0]*A01[0][2] B10[6][0]*A01[0][2] B10[7][0]*A01[0][2])
+	ymm7 = _mm256_fmadd_pd(ymm11, ymm13, ymm7);//ymm7 += (B10[4][0]*A01[0][3] B10[5][0]*A01[0][3] B10[6][0]*A01[0][3] B10[7][0]*A01[0][3])
 
-	ymm8 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));
-	ymm9 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));
-	ymm10 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));
-	ymm11 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));
-
-	a01 += 1;
-
-	ymm0 = _mm256_fmadd_pd(ymm8, ymm14, ymm0);
-	ymm1 = _mm256_fmadd_pd(ymm9, ymm14, ymm1);
-	ymm2 = _mm256_fmadd_pd(ymm10, ymm14, ymm2);
-	ymm3 = _mm256_fmadd_pd(ymm11, ymm14, ymm3);
-
-	ymm4 = _mm256_fmadd_pd(ymm8, ymm15, ymm4);
-	ymm5 = _mm256_fmadd_pd(ymm9, ymm15, ymm5);
-	ymm6 = _mm256_fmadd_pd(ymm10, ymm15, ymm6);
-	ymm7 = _mm256_fmadd_pd(ymm11, ymm15, ymm7);
-
-	ymm8 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));
-	ymm9 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));
-	ymm10 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));
-	ymm11 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));
+	//broadcast 2nd row of A01
+	ymm8 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));//A01[1][0]
+	ymm9 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));//A01[1][1]
+	ymm10 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));//A01[1][2]
+	ymm11 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));//A01[1][3]
 
 	a01 += 1;
 
-	ymm12 = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[0]));
-	ymm13 = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[0] + D_NR));
-	ymm14 = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[0] + cs_b));
-	ymm15 = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[0] + cs_b + D_NR));
+	ymm0 = _mm256_fmadd_pd(ymm8, ymm14, ymm0);//ymm0 += (B10[0][1]*A01[0][0] B10[1][1]*A01[0][0] B10[2][1]*A01[0][0] B10[3][1]*A01[0][0])
+	ymm1 = _mm256_fmadd_pd(ymm9, ymm14, ymm1);//ymm1 += (B10[0][1]*A01[0][1] B10[1][1]*A01[0][1] B10[2][1]*A01[0][1] B10[3][1]*A01[0][1])
+	ymm2 = _mm256_fmadd_pd(ymm10, ymm14, ymm2);//ymm2 += (B10[0][1]*A01[0][2] B10[1][1]*A01[0][2] B10[2][1]*A01[0][2] B10[3][1]*A01[0][2])
+	ymm3 = _mm256_fmadd_pd(ymm11, ymm14, ymm3);//ymm3 += (B10[0][1]*A01[0][3] B10[1][1]*A01[0][3] B10[2][1]*A01[0][3] B10[3][1]*A01[0][3])
 
-	ymm0 = _mm256_fmadd_pd(ymm8, ymm12, ymm0);
-	ymm1 = _mm256_fmadd_pd(ymm9, ymm12, ymm1);
-	ymm2 = _mm256_fmadd_pd(ymm10, ymm12, ymm2);
-	ymm3 = _mm256_fmadd_pd(ymm11, ymm12, ymm3);
+	ymm4 = _mm256_fmadd_pd(ymm8, ymm15, ymm4);//ymm4 += (B10[4][1]*A01[0][0] B10[5][1]*A01[0][0] B10[6][1]*A01[0][0] B10[7][1]*A01[0][0])
+	ymm5 = _mm256_fmadd_pd(ymm9, ymm15, ymm5);//ymm5 += (B10[4][1]*A01[0][1] B10[5][1]*A01[0][1] B10[6][1]*A01[0][1] B10[7][1]*A01[0][1])
+	ymm6 = _mm256_fmadd_pd(ymm10, ymm15, ymm6);//ymm6 += (B10[4][1]*A01[0][2] B10[5][1]*A01[0][2] B10[6][1]*A01[0][2] B10[7][1]*A01[0][2])
+	ymm7 = _mm256_fmadd_pd(ymm11, ymm15, ymm7);//ymm7 += (B10[4][1]*A01[0][3] B10[5][1]*A01[0][3] B10[6][1]*A01[0][3] B10[7][1]*A01[0][3])
 
-	ymm4 = _mm256_fmadd_pd(ymm8, ymm13, ymm4);
-	ymm5 = _mm256_fmadd_pd(ymm9, ymm13, ymm5);
-	ymm6 = _mm256_fmadd_pd(ymm10, ymm13, ymm6);
-	ymm7 = _mm256_fmadd_pd(ymm11, ymm13, ymm7);
-
-	ymm8 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));
-	ymm9 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));
-	ymm10 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));
-	ymm11 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));
+	//broadcast 3rd row of A01
+	ymm8 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));//A01[2][0]
+	ymm9 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));//A01[2][1]
+	ymm10 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));//A01[2][2]
+	ymm11 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));//A01[2][3]
 
 	a01 += 1;
 
-	ymm0 = _mm256_fmadd_pd(ymm8, ymm14, ymm0);
-	ymm1 = _mm256_fmadd_pd(ymm9, ymm14, ymm1);
-	ymm2 = _mm256_fmadd_pd(ymm10, ymm14, ymm2);
-	ymm3 = _mm256_fmadd_pd(ymm11, ymm14, ymm3);
+	//load next 8x2 block of B10
+	ymm12 = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[0]));//(B10[0][2] B10[1][2] B10[2][2] B10[3][2])
+	ymm13 = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[0] + D_NR));//(B10[4][2] B10[5][2] B10[6][2] B10[7][2])
+	ymm14 = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[0] + cs_b));//(B10[0][3] B10[1][3] B10[2][3] B10[3][3])
+	ymm15 = _mm256_loadu_pd((double const *)(b10 + cs_b_offset[0] + cs_b + D_NR));//(B10[4][3] B10[5][3] B10[6][3] B10[7][3])
 
-	ymm4 = _mm256_fmadd_pd(ymm8, ymm15, ymm4);
-	ymm5 = _mm256_fmadd_pd(ymm9, ymm15, ymm5);
-	ymm6 = _mm256_fmadd_pd(ymm10, ymm15, ymm6);
-	ymm7 = _mm256_fmadd_pd(ymm11, ymm15, ymm7);
+	ymm0 = _mm256_fmadd_pd(ymm8, ymm12, ymm0);//ymm0 += (B10[0][2]*A01[0][0] B10[1][2]*A01[0][0] B10[2][2]*A01[0][0] B10[3][2]*A01[0][0])
+	ymm1 = _mm256_fmadd_pd(ymm9, ymm12, ymm1);//ymm1 += (B10[0][2]*A01[0][1] B10[1][2]*A01[0][1] B10[2][2]*A01[0][1] B10[3][2]*A01[0][1])
+	ymm2 = _mm256_fmadd_pd(ymm10, ymm12, ymm2);//ymm2 += (B10[0][2]*A01[0][2] B10[1][2]*A01[0][2] B10[2][2]*A01[0][2] B10[3][2]*A01[0][2])
+	ymm3 = _mm256_fmadd_pd(ymm11, ymm12, ymm3);//ymm3 += (B10[0][2]*A01[0][3] B10[1][2]*A01[0][3] B10[2][2]*A01[0][3] B10[3][2]*A01[0][3])
+
+	ymm4 = _mm256_fmadd_pd(ymm8, ymm13, ymm4);//ymm4 += (B10[4][2]*A01[0][0] B10[5][2]*A01[0][0] B10[6][2]*A01[0][0] B10[7][2]*A01[0][0])
+	ymm5 = _mm256_fmadd_pd(ymm9, ymm13, ymm5);//ymm5 += (B10[4][2]*A01[0][1] B10[5][2]*A01[0][1] B10[6][2]*A01[0][1] B10[7][2]*A01[0][1])
+	ymm6 = _mm256_fmadd_pd(ymm10, ymm13, ymm6);//ymm6 += (B10[4][2]*A01[0][2] B10[5][2]*A01[0][2] B10[6][2]*A01[0][2] B10[7][2]*A01[0][2])
+	ymm7 = _mm256_fmadd_pd(ymm11, ymm13, ymm7);//ymm7 += (B10[4][2]*A01[0][3] B10[5][2]*A01[0][3] B10[6][2]*A01[0][3] B10[7][2]*A01[0][3])
+
+	//broadcast 4th row of A01
+	ymm8 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 0));//A01[3][0]
+	ymm9 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 1));//A01[3][1]
+	ymm10 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 2));//A01[3][2]
+	ymm11 = _mm256_broadcast_sd((double const *)(a01 + cs_a * 3));//A01[3][3]
+
+	a01 += 1;
+
+	ymm0 = _mm256_fmadd_pd(ymm8, ymm14, ymm0);//ymm0 += (B10[0][3]*A01[0][0] B10[1][3]*A01[0][0] B10[2][3]*A01[0][0] B10[3][3]*A01[0][0])
+	ymm1 = _mm256_fmadd_pd(ymm9, ymm14, ymm1);//ymm1 += (B10[0][3]*A01[0][1] B10[1][3]*A01[0][1] B10[2][3]*A01[0][1] B10[3][3]*A01[0][1])
+	ymm2 = _mm256_fmadd_pd(ymm10, ymm14, ymm2);//ymm2 += (B10[0][3]*A01[0][2] B10[1][3]*A01[0][2] B10[2][3]*A01[0][2] B10[3][3]*A01[0][2])
+	ymm3 = _mm256_fmadd_pd(ymm11, ymm14, ymm3);//ymm3 += (B10[0][3]*A01[0][3] B10[1][3]*A01[0][3] B10[2][3]*A01[0][3] B10[3][3]*A01[0][3])
+
+	ymm4 = _mm256_fmadd_pd(ymm8, ymm15, ymm4);//ymm4 += (B10[4][3]*A01[0][0] B10[5][3]*A01[0][0] B10[6][3]*A01[0][0] B10[7][3]*A01[0][0])
+	ymm5 = _mm256_fmadd_pd(ymm9, ymm15, ymm5);//ymm5 += (B10[4][3]*A01[0][1] B10[5][3]*A01[0][1] B10[6][3]*A01[0][1] B10[7][3]*A01[0][1])
+	ymm6 = _mm256_fmadd_pd(ymm10, ymm15, ymm6);//ymm6 += (B10[4][3]*A01[0][2] B10[5][3]*A01[0][2] B10[6][3]*A01[0][2] B10[7][3]*A01[0][2])
+	ymm7 = _mm256_fmadd_pd(ymm11, ymm15, ymm7);//ymm7 += (B10[4][3]*A01[0][3] B10[5][3]*A01[0][3] B10[6][3]*A01[0][3] B10[7][3]*A01[0][3])
 
 	b10 += D_NR * cs_b;
 	a01 = ptr_a01_dup + D_NR;
 
     }
 
-    ymm8 = _mm256_loadu_pd((double const *)b11);
-    ymm12 = _mm256_loadu_pd((double const *)(b11 + D_NR));
-    ymm9 = _mm256_loadu_pd((double const *)(b11 + cs_b));
-    ymm13 = _mm256_loadu_pd((double const *)(b11 + cs_b + D_NR));
-    ymm10 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[0]));
-    ymm14 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[0] + D_NR));
-    ymm11 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[1]));
-    ymm15 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[1] + D_NR));
+    //load 8x4 block of B11
+    ymm8 = _mm256_loadu_pd((double const *)b11);//B11[0-3][0]
+    ymm12 = _mm256_loadu_pd((double const *)(b11 + D_NR));//B11[4-7][0]
+    ymm9 = _mm256_loadu_pd((double const *)(b11 + cs_b));//B11[0-3][1]
+    ymm13 = _mm256_loadu_pd((double const *)(b11 + cs_b + D_NR));//B11[4-7][1]
+    ymm10 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[0]));//B11[0-3][2]
+    ymm14 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[0] + D_NR));//B11[4-7][2]
+    ymm11 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[1]));//B11[0-3][3]
+    ymm15 = _mm256_loadu_pd((double const *)(b11 + cs_b_offset[1] + D_NR));//B11[4-7][3]
 
-    ymm8 = _mm256_sub_pd(ymm8, ymm0);
-    ymm9 = _mm256_sub_pd(ymm9, ymm1);
-    ymm10 = _mm256_sub_pd(ymm10, ymm2);
-    ymm11 = _mm256_sub_pd(ymm11, ymm3);
+    ymm8 = _mm256_sub_pd(ymm8, ymm0);//B11[0-3][0] -= ymm0
+    ymm9 = _mm256_sub_pd(ymm9, ymm1);//B11[4-7][0] -= ymm1
+    ymm10 = _mm256_sub_pd(ymm10, ymm2);//B11[0-3][1] -= ymm2
+    ymm11 = _mm256_sub_pd(ymm11, ymm3);//B11[4-7][1] -= ymm3
 
-    ymm12 = _mm256_sub_pd(ymm12, ymm4);
-    ymm13 = _mm256_sub_pd(ymm13, ymm5);
-    ymm14 = _mm256_sub_pd(ymm14, ymm6);
-    ymm15 = _mm256_sub_pd(ymm15, ymm7);
+    ymm12 = _mm256_sub_pd(ymm12, ymm4);//B11[0-3][2] -= ymm4
+    ymm13 = _mm256_sub_pd(ymm13, ymm5);//B11[4-7][2] -= ymm5
+    ymm14 = _mm256_sub_pd(ymm14, ymm6);//B11[0-3][3] -= ymm6
+    ymm15 = _mm256_sub_pd(ymm15, ymm7);//B11[4-7][3] -= ymm7
 
     ///implement TRSM///
 
@@ -2392,95 +2404,95 @@ static void blis_dtrsm_microkernel_XAuB_large_8x4(
     ymm7 = _mm256_broadcast_sd((double const *)(&ones));
 
     //1st col
-    ymm0 = _mm256_broadcast_sd((double const *)(a11+0));
+    ymm0 = _mm256_broadcast_sd((double const *)(a11+0));//A11[0][0]
 
     //2nd col
     a11 += cs_a;
-    ymm1 = _mm256_broadcast_sd((double const *)(a11+0));
-    ymm2 = _mm256_broadcast_sd((double const *)(a11+1));
+    ymm1 = _mm256_broadcast_sd((double const *)(a11+0));//A11[0][1]
+    ymm2 = _mm256_broadcast_sd((double const *)(a11+1));//A11[1][1]
 
     //3rd col
     a11 += cs_a;
-    ymm3 = _mm256_broadcast_sd((double const *)(a11+0));
-    ymm4 = _mm256_broadcast_sd((double const *)(a11+1));
-    ymm5 = _mm256_broadcast_sd((double const *)(a11+2));
+    ymm3 = _mm256_broadcast_sd((double const *)(a11+0));//A11[0][2]
+    ymm4 = _mm256_broadcast_sd((double const *)(a11+1));//A11[1][2]
+    ymm5 = _mm256_broadcast_sd((double const *)(a11+2));//A11[2][2]
 
     //4th col
     a11 += cs_a;
-    ymm6 = _mm256_broadcast_sd((double const *)(a11+3));
+    ymm6 = _mm256_broadcast_sd((double const *)(a11+3));//A11[3][3]
 
     //compute reciprocals of L(i,i) and broadcast in registers
-    ymm0 = _mm256_unpacklo_pd(ymm0, ymm2);
-    ymm2 = _mm256_unpacklo_pd(ymm5, ymm6);
+    ymm0 = _mm256_unpacklo_pd(ymm0, ymm2);//A11[0][0] A11[1][1] A11[0][0] A11[1][1]
+    ymm2 = _mm256_unpacklo_pd(ymm5, ymm6);//A11[2][2] A11[3][3] A11[1][1] A11[3][3]
 
-    ymm0 = _mm256_blend_pd(ymm0, ymm2, 0x0C);
-    ymm7 = _mm256_div_pd(ymm7, ymm0);
+    ymm0 = _mm256_blend_pd(ymm0, ymm2, 0x0C);//A11[0][0] A11[1][1] A11[2][2] A11[3][3]
+    ymm7 = _mm256_div_pd(ymm7, ymm0);//(1/A11[0][0] 1/A11[1][1] 1/A11[2][2] 1/A11[3][3])
 
-    ymm2 = _mm256_broadcast_sd((double const *)(a11+0));
-    ymm5 = _mm256_broadcast_sd((double const *)(a11+1));
-    ymm6 = _mm256_broadcast_sd((double const *)(a11+2));
+    ymm2 = _mm256_broadcast_sd((double const *)(a11+0));//A11[0][3]
+    ymm5 = _mm256_broadcast_sd((double const *)(a11+1));//A11[1][3]
+    ymm6 = _mm256_broadcast_sd((double const *)(a11+2));//A11[2][3]
 
     //extract a00
-    ymm0 = _mm256_permute_pd(ymm7, 0x00);
-    ymm0 = _mm256_permute2f128_pd(ymm0, ymm0, 0x00);
+    ymm0 = _mm256_permute_pd(ymm7, 0x00);//(1/A11[0][0] 1/A11[0][0] 1/A11[2][2] 1/A11[2][2])
+    ymm0 = _mm256_permute2f128_pd(ymm0, ymm0, 0x00);//(1/A11[0][0] 1/A11[0][0] 1/A11[0][0] 1/A11[0][0])
 
-    ymm8 = _mm256_mul_pd(ymm8, ymm0);
+    ymm8 = _mm256_mul_pd(ymm8, ymm0);//B11[0-3][0] /= A11[0][0]
 
-    ymm12 = _mm256_mul_pd(ymm12, ymm0);
+    ymm12 = _mm256_mul_pd(ymm12, ymm0);//B11[4-7][0] /= A11[0][0]
 
     //extract a11
-    ymm0 = _mm256_permute_pd(ymm7, 0x03);
-    ymm0 = _mm256_permute2f128_pd(ymm0, ymm0, 0x00);
+    ymm0 = _mm256_permute_pd(ymm7, 0x03);//(1/A11[1][1] 1/A11[1][1] 1/A11[2][2] 1/A11[2][2])
+    ymm0 = _mm256_permute2f128_pd(ymm0, ymm0, 0x00);//(1/A11[1][1] 1/A11[1][1] 1/A11[1][1] 1/A11[1][1])
 
     //(Row1): FMA operations
-    ymm9 = _mm256_fnmadd_pd(ymm1, ymm8, ymm9);
-    ymm10 = _mm256_fnmadd_pd(ymm3, ymm8, ymm10);
-    ymm11 = _mm256_fnmadd_pd(ymm2, ymm8, ymm11);
+    ymm9 = _mm256_fnmadd_pd(ymm1, ymm8, ymm9);//B11[0-3][1] -= B11[0-3][0] * A11[0][1]
+    ymm10 = _mm256_fnmadd_pd(ymm3, ymm8, ymm10);//B11[0-3][2] -= B11[0-3][0] * A11[0][2]
+    ymm11 = _mm256_fnmadd_pd(ymm2, ymm8, ymm11);//B11[0-3][3] -= B11[0-3][0] * A11[0][3]
 
-    ymm13 = _mm256_fnmadd_pd(ymm1, ymm12, ymm13);
-    ymm14 = _mm256_fnmadd_pd(ymm3, ymm12, ymm14);
-    ymm15 = _mm256_fnmadd_pd(ymm2, ymm12, ymm15);
+    ymm13 = _mm256_fnmadd_pd(ymm1, ymm12, ymm13);//B11[4-7][1] -= B11[4-7][0] * A11[0][1]
+    ymm14 = _mm256_fnmadd_pd(ymm3, ymm12, ymm14);//B11[4-7][2] -= B11[4-7][0] * A11[0][2]
+    ymm15 = _mm256_fnmadd_pd(ymm2, ymm12, ymm15);//B11[4-7][3] -= B11[4-7][0] * A11[0][3]
 
-    ymm9 = _mm256_mul_pd(ymm9, ymm0);
+    ymm9 = _mm256_mul_pd(ymm9, ymm0);//B11[0-3][1] /= A11[1][1]
 
-    ymm13 = _mm256_mul_pd(ymm13, ymm0);
+    ymm13 = _mm256_mul_pd(ymm13, ymm0);//B11[4-7][1] /= A11[1][1]
 
     //extract a22
-    ymm0 = _mm256_permute_pd(ymm7, 0x00);
-    ymm0 = _mm256_permute2f128_pd(ymm0, ymm0, 0x11);
+    ymm0 = _mm256_permute_pd(ymm7, 0x00);//(1/A11[0][0] 1/A11[0][0] 1/A11[2][2] 1/A11[2][2])
+    ymm0 = _mm256_permute2f128_pd(ymm0, ymm0, 0x11);//(1/A11[2][2] 1/A11[2][2] 1/A11[2][2] 1/A11[2][2])
 
     //(Row2)FMA operations
-    ymm10 = _mm256_fnmadd_pd(ymm4, ymm9, ymm10);
-    ymm11 = _mm256_fnmadd_pd(ymm5, ymm9, ymm11);
+    ymm10 = _mm256_fnmadd_pd(ymm4, ymm9, ymm10);//B11[0-3][2] -= B11[0-3][1] * A11[1][2]
+    ymm11 = _mm256_fnmadd_pd(ymm5, ymm9, ymm11);//B11[0-3][3] -= B11[0-3][1] * A11[1][3]
 
-    ymm14 = _mm256_fnmadd_pd(ymm4, ymm13, ymm14);
-    ymm15 = _mm256_fnmadd_pd(ymm5, ymm13, ymm15);
+    ymm14 = _mm256_fnmadd_pd(ymm4, ymm13, ymm14);//B11[4-7][2] -= B11[4-7][1] * A11[1][2]
+    ymm15 = _mm256_fnmadd_pd(ymm5, ymm13, ymm15);//B11[4-7][3] -= B11[4-7][1] * A11[1][3]
 
-    ymm10 = _mm256_mul_pd(ymm10, ymm0);
+    ymm10 = _mm256_mul_pd(ymm10, ymm0);//B11[0-3][2] /= A11[2][2]
 
-    ymm14 = _mm256_mul_pd(ymm14, ymm0);
+    ymm14 = _mm256_mul_pd(ymm14, ymm0);//B11[4-7][2] /= A11[2][2]
 
     //extract a33
-    ymm0 = _mm256_permute_pd(ymm7, 0x0C);
-    ymm0 = _mm256_permute2f128_pd(ymm0, ymm0, 0x11);
+    ymm0 = _mm256_permute_pd(ymm7, 0x0C);//(1/A11[0][0] 1/A11[0][0] 1/A11[3][3] 1/A11[3][3] 1/A11[3][3])
+    ymm0 = _mm256_permute2f128_pd(ymm0, ymm0, 0x11);//(1/A11[3][3] 1/A11[3][3] 1/A11[3][3] 1/A11[3][3])
 
     //(Row3)FMA operations
-    ymm11 = _mm256_fnmadd_pd(ymm6, ymm10, ymm11);
+    ymm11 = _mm256_fnmadd_pd(ymm6, ymm10, ymm11);//B11[0-3][3] -= B11[0-3][2] * A11[2][3]
 
-    ymm15 = _mm256_fnmadd_pd(ymm6, ymm14, ymm15);
+    ymm15 = _mm256_fnmadd_pd(ymm6, ymm14, ymm15);//B11[4-7][3] -= B11[4-7][2] * A11[2][3]
 
-    ymm11 = _mm256_mul_pd(ymm11, ymm0);
+    ymm11 = _mm256_mul_pd(ymm11, ymm0);//B11[0-3][3] /= A11[3][3]
 
-    ymm15 = _mm256_mul_pd(ymm15, ymm0);
+    ymm15 = _mm256_mul_pd(ymm15, ymm0);//B11[4-7][3] /= A11[3][3]
 
-    _mm256_storeu_pd((double *)b11, ymm8);
-    _mm256_storeu_pd((double *)(b11 + D_NR), ymm12);
-    _mm256_storeu_pd((double *)(b11 + cs_b), ymm9);
-    _mm256_storeu_pd((double *)(b11 + cs_b + D_NR), ymm13);
-    _mm256_storeu_pd((double *)(b11 + cs_b_offset[0]), ymm10);
-    _mm256_storeu_pd((double *)(b11 + cs_b_offset[0] + D_NR), ymm14);
-    _mm256_storeu_pd((double *)(b11 + cs_b_offset[0] + cs_b), ymm11);
-    _mm256_storeu_pd((double *)(b11 + cs_b_offset[0] + cs_b + D_NR), ymm15);
+    _mm256_storeu_pd((double *)b11, ymm8);//store(B11[0-3][0])
+    _mm256_storeu_pd((double *)(b11 + D_NR), ymm12);//store(B11[4-7][0])
+    _mm256_storeu_pd((double *)(b11 + cs_b), ymm9);//store(B11[0-3][1])
+    _mm256_storeu_pd((double *)(b11 + cs_b + D_NR), ymm13);//store(B11[4-7][1])
+    _mm256_storeu_pd((double *)(b11 + cs_b_offset[0]), ymm10);//store(B11[0-3][2])
+    _mm256_storeu_pd((double *)(b11 + cs_b_offset[0] + D_NR), ymm14);//store(B11[4-7][2])
+    _mm256_storeu_pd((double *)(b11 + cs_b_offset[0] + cs_b), ymm11);//store(B11[0-3][3])
+    _mm256_storeu_pd((double *)(b11 + cs_b_offset[0] + cs_b + D_NR), ymm15);//store(B11[4-7][3])
 
 }
 
