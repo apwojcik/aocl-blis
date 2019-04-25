@@ -182,7 +182,7 @@ int main( int argc, char** argv )
 		bli_obj_set_conjtrans( transa, &a );
 		bli_obj_set_diag( diaga, &a );
 
-<<<<<<< HEAD
+
 		// Randomize A, make it densely Hermitian, and zero the unstored
 		// triangle to ensure the implementation reads only from the stored
 		// region.
@@ -190,12 +190,9 @@ int main( int argc, char** argv )
 		bli_mkherm( &a );
 		bli_mktrim( &a );
 
-=======
-
 		// Load the diagonal of A to make it more likely to be invertible.
 //		bli_shiftd( &BLIS_TWO, &a );
 
->>>>>>> 4e3f9c73... test trsm code to take input matrices from a file
 		bli_setsc(  (2.0/1.0), 1.0, &alpha );
 
 
