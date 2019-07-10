@@ -44,15 +44,13 @@
 
 #define BLIS_ENABLE_PREFETCH
 #define F_SCRATCH_DIM (BLIS_SMALL_MATRIX_THRES * BLIS_SMALL_MATRIX_THRES)
-static float A_pack[F_SCRATCH_DIM]  __attribute__((aligned(64)));
 #define D_BLIS_SMALL_MATRIX_THRES (BLIS_SMALL_MATRIX_THRES / 2 )
 #define D_BLIS_SMALL_M_RECT_MATRIX_THRES (BLIS_SMALL_M_RECT_MATRIX_THRES / 2)
 #define D_BLIS_SMALL_K_RECT_MATRIX_THRES (BLIS_SMALL_K_RECT_MATRIX_THRES / 2)
 #define D_SCRATCH_DIM (D_BLIS_SMALL_MATRIX_THRES * D_BLIS_SMALL_MATRIX_THRES)
-static double D_A_pack[D_SCRATCH_DIM]  __attribute__((aligned(64)));
 #define BLIS_ATBN_M_THRES 40 // Threshold value of M for/below which small matrix code is called. 
 #define AT_MR 4 // The kernel dimension of the A transpose GEMM kernel.(AT_MR * NR).
-static err_t bli_sgemm_small
+err_t bli_sgemm_small
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -63,7 +61,7 @@ static err_t bli_sgemm_small
        cntl_t* cntl
      );
 
-static err_t bli_dgemm_small
+err_t bli_dgemm_small
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -74,7 +72,7 @@ static err_t bli_dgemm_small
        cntl_t* cntl
      );
 
-static err_t bli_sgemm_small_atbn
+err_t bli_sgemm_small_atbn
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -85,7 +83,7 @@ static err_t bli_sgemm_small_atbn
        cntl_t* cntl
      );
 
-static err_t bli_dgemm_small_atbn
+err_t bli_dgemm_small_atbn
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -161,7 +159,7 @@ err_t bli_gemm_small
 };
 
 
-static err_t bli_sgemm_small
+err_t bli_sgemm_small
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -232,7 +230,7 @@ static err_t bli_sgemm_small
             tb_inc_row = ldb;
         }
 
-        if ((N <= 3) || ((MR * K) > F_SCRATCH_DIM))
+        if ((N <= 3))
         {
             required_packing_A = 0;
         }
@@ -1563,7 +1561,7 @@ static err_t bli_sgemm_small
 
 };
 
-static err_t bli_dgemm_small
+err_t bli_dgemm_small
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -1639,7 +1637,7 @@ static err_t bli_dgemm_small
             tb_inc_row = ldb;
         }
 
-        if ((N <= 3) || ((D_MR * K) > D_SCRATCH_DIM))
+        if ((N <= 3))
         {
             required_packing_A = 0;
         }
@@ -1960,7 +1958,7 @@ static err_t bli_dgemm_small
                 //pointer math to point to proper memory
                 tC = C + ldc * col_idx + row_idx;
                 tB = B + tb_inc_col * col_idx;
-                tA = A + row_idx;
+                tA = tA_packed + row_idx_packed;
 
                 // clear scratch registers.
                 ymm8 = _mm256_setzero_pd();
@@ -1998,7 +1996,7 @@ static err_t bli_dgemm_small
                     ymm11 = _mm256_fmadd_pd(ymm0, ymm3, ymm11);
                     ymm15 = _mm256_fmadd_pd(ymm1, ymm3, ymm15);
 
-                    tA += lda;
+                    tA += lda_packed;
 
                 }
                 // alpha, beta multiplication.
@@ -2053,7 +2051,7 @@ static err_t bli_dgemm_small
                 //pointer math to point to proper memory
                 tC = C + ldc * col_idx + row_idx;
                 tB = B + tb_inc_col * col_idx;
-                tA = A + row_idx;
+                tA = tA_packed + row_idx_packed;
 
                 // clear scratch registers.
                 ymm12 = _mm256_setzero_pd();
@@ -2082,7 +2080,7 @@ static err_t bli_dgemm_small
                     ymm3 = _mm256_loadu_pd(tA + 12);
                     ymm15 = _mm256_fmadd_pd(ymm0, ymm3, ymm15);
 
-                    tA += lda;
+                    tA += lda_packed;
 
                 }
                 // alpha, beta multiplication.
@@ -2971,7 +2969,7 @@ static err_t bli_dgemm_small
 
 };
 
-static err_t bli_sgemm_small_atbn
+err_t bli_sgemm_small_atbn
      (
        obj_t*  alpha,
        obj_t*  a,
@@ -3363,7 +3361,7 @@ static err_t bli_sgemm_small_atbn
         return BLIS_NONCONFORMAL_DIMENSIONS;
 }
 
-static err_t bli_dgemm_small_atbn
+err_t bli_dgemm_small_atbn
      (
        obj_t*  alpha,
        obj_t*  a,

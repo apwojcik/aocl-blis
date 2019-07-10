@@ -136,8 +136,192 @@ int main( int argc, char** argv )
 		bli_obj_create( dt, m, n, 0, 0, &c );
 		bli_obj_create( dt, m, n, 0, 0, &c_save );
 
+//		bli_randm( &a );
+//		bli_randm( &c );
+
+		// Randomize A and zero the unstored triangle to ensure the
+		// implementation reads only from the stored region.
+//		bli_randm( &a );
+//		bli_mktrim( &a );
+
+               FILE *file;
+  	       file=fopen("matrix.txt", "r");
+	double *A = (&a)->buffer;
+	double *C = (&c)->buffer;
+	int lda = bli_obj_col_stride(&a);
+	int ldc = bli_obj_col_stride(&c);
+	       for(i = 0; i < m; i++)
+  		{
+      		for(j = 0; j < m; j++)
+      		{
+  		//Use lf format specifier, %c is for character
+       		if (!fscanf(file, "%lf", &A[i+j*lda]))
+           	break;
+      // mat[i][j] -= '0';
+      		for(j = 0; j < m; j++)
+      		{
+  		//Use lf format specifier, %c is for character
+       		if (!fscanf(file, "%lf", &A[i+j*lda]))
+           	break;
+      // mat[i][j] -= '0';
+       		//printf("%lf\n",mat[i][j]); //Use lf format specifier, \n is for new line
+      		}
+
+  		}
+		for(i = 0; i < m; i++)
+  		{
+      		for(j = 0; j < n; j++)
+      		{
+  		//Use lf format specifier, %c is for character
+       		if (!fscanf(file, "%lf", &C[i+j*ldc]))
+           	break;
+      // mat[i][j] -= '0';
+      		for(j = 0; j < n; j++)
+      		{
+  		//Use lf format specifier, %c is for character
+       		if (!fscanf(file, "%lf", &C[i+j*ldc]))
+           	break;
+      // mat[i][j] -= '0';
+       		//printf("%lf\n",mat[i][j]); //Use lf format specifier, \n is for new line
+      		}
+
+  		}
+
+		fclose(file);
+    	bli_randm( &a );
+		bli_randm( &c );
+		fclose(file);
+		bli_obj_create( dt, m, n, 1, m, &c );
+		bli_obj_create( dt, m, n, 1, m, &c_save );
+
+//		bli_randm( &a );
+//		bli_randm( &c );
+
+		// Randomize A and zero the unstored triangle to ensure the
+		// implementation reads only from the stored region.
+//		bli_randm( &a );
+//		bli_mktrim( &a );
+
+               FILE *file;
+  	       file=fopen("matrix.txt", "r");
+	double *A = (&a)->buffer;
+	double *C = (&c)->buffer;
+	int lda = bli_obj_col_stride(&a);
+	int ldc = bli_obj_col_stride(&c);
+	       for(i = 0; i < m; i++)
+  		{
+      		for(j = 0; j < m; j++)
+      		{
+  		//Use lf format specifier, %c is for character
+       		if (!fscanf(file, "%lf", &A[i+j*lda]))
+           	break;
+      // mat[i][j] -= '0';
+       		//printf("%lf\n",mat[i][j]); //Use lf format specifier, \n is for new line
+      		}
+
+  		}
+		for(i = 0; i < m; i++)
+  		{
+      		for(j = 0; j < n; j++)
+      		{
+  		//Use lf format specifier, %c is for character
+       		if (!fscanf(file, "%lf", &C[i+j*ldc]))
+           	break;
+      // mat[i][j] -= '0';
+       		//printf("%lf\n",mat[i][j]); //Use lf format specifier, \n is for new line
+      		}
+
+  		}
+
+		fclose(file);
+		bli_obj_create( dt, m, n, 1, m, &c );
+		bli_obj_create( dt, m, n, 1, m, &c_save );
+
+//		bli_randm( &a );
+//		bli_randm( &c );
+
+		// Randomize A and zero the unstored triangle to ensure the
+		// implementation reads only from the stored region.
+//		bli_randm( &a );
+//		bli_mktrim( &a );
+
+               FILE *file;
+  	       file=fopen("matrix.txt", "r");
+	double *A = (&a)->buffer;
+	double *C = (&c)->buffer;
+	int lda = bli_obj_col_stride(&a);
+	int ldc = bli_obj_col_stride(&c);
+	       for(i = 0; i < m; i++)
+  		{
+      		for(j = 0; j < m; j++)
+      		{
+  		//Use lf format specifier, %c is for character
+       		if (!fscanf(file, "%lf", &A[i+j*lda]))
+           	break;
+      // mat[i][j] -= '0';
+       		//printf("%lf\n",mat[i][j]); //Use lf format specifier, \n is for new line
+      		}
+
+  		}
+		for(i = 0; i < m; i++)
+  		{
+      		for(j = 0; j < n; j++)
+      		{
+  		//Use lf format specifier, %c is for character
+       		if (!fscanf(file, "%lf", &C[i+j*ldc]))
+           	break;
+      // mat[i][j] -= '0';
+       		//printf("%lf\n",mat[i][j]); //Use lf format specifier, \n is for new line
+      		}
+
+  		}
+		fclose(file);
+
 		bli_randm( &a );
 		bli_randm( &c );
+
+		bli_obj_create( dt, m, n, 1, m, &c );
+		bli_obj_create( dt, m, n, 1, m, &c_save );
+
+//		bli_randm( &a );
+//		bli_randm( &c );
+
+		// Randomize A and zero the unstored triangle to ensure the
+		// implementation reads only from the stored region.
+//		bli_randm( &a );
+//		bli_mktrim( &a );
+
+               FILE *file;
+  	       file=fopen("matrix.txt", "r");
+	double *A = (&a)->buffer;
+	double *C = (&c)->buffer;
+	int lda = bli_obj_col_stride(&a);
+	int ldc = bli_obj_col_stride(&c);
+	       for(i = 0; i < m; i++)
+  		{
+      		for(j = 0; j < m; j++)
+      		{
+  		//Use lf format specifier, %c is for character
+       		if (!fscanf(file, "%lf", &A[i+j*lda]))
+           	break;
+      // mat[i][j] -= '0';
+       		//printf("%lf\n",mat[i][j]); //Use lf format specifier, \n is for new line
+      		}
+
+  		}
+		for(i = 0; i < m; i++)
+  		{
+      		for(j = 0; j < n; j++)
+      		{
+  		//Use lf format specifier, %c is for character
+       		if (!fscanf(file, "%lf", &C[i+j*ldc]))
+           	break;
+      // mat[i][j] -= '0';
+       		//printf("%lf\n",mat[i][j]); //Use lf format specifier, \n is for new line
+      		}
+
+  		}
+        fclose(file);
 
 		bli_obj_set_struc( BLIS_TRIANGULAR, &a );
 		bli_obj_set_uplo( uploa, &a );
@@ -146,6 +330,15 @@ int main( int argc, char** argv )
 
 		// Randomize A and zero the unstored triangle to ensure the
 		// implementation reads only from the stored region.
+<<<<<<< HEAD
+=======
+		bli_randm( &a );
+		bli_mktrim( &a );
+
+		// Randomize A, make it densely Hermitian, and zero the unstored
+		// triangle to ensure the implementation reads only from the stored
+		// region.
+>>>>>>> 093043c1a9e5b4357939c47c8cab3ac2ffb2c158
 		bli_randm( &a );
 		bli_mktrim( &a );
 
@@ -156,7 +349,7 @@ int main( int argc, char** argv )
 
 
 		bli_copym( &c, &c_save );
-	
+
 		dtime_save = DBL_MAX;
 
 		for ( r = 0; r < n_repeats; ++r )
