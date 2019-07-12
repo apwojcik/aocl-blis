@@ -96,6 +96,8 @@ void PASTEF77(ch,blasname) \
 	rs_b = 1; \
 	cs_b = *ldb; \
 \
+    if(!(m && n)) \
+        return; \
 	/* Call BLIS interface. */ \
 	PASTEMAC2(ch,blisname,BLIS_TAPI_EX_SUF) \
 	( \

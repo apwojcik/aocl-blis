@@ -82,6 +82,11 @@ void PASTEMAC2(ch,opname,EX_SUF) \
 	bli_obj_set_conjtrans( transa, &ao ); \
 	bli_obj_set_conjtrans( transb, &bo ); \
 \
+    if(k == 0) \
+    { \
+        bli_scalm(&betao, &co); \
+        return; \
+    } \
 	PASTEMAC(opname,BLIS_OAPI_EX_SUF) \
 	( \
 	  &alphao, \
