@@ -5,6 +5,7 @@
    libraries.
 
    Copyright (C) 2014, The University of Texas at Austin
+   Copyright (C) 2018, Advanced Micro Devices, Inc.
 
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions are
@@ -42,7 +43,8 @@ void bli_syrk_front
        rntm_t* rntm,
        cntl_t* cntl
      );
-	 
+
+#ifdef BLIS_ENABLE_SMALL_MATRIX
 err_t bli_syrk_small
      (
        obj_t*  alpha,
@@ -53,3 +55,5 @@ err_t bli_syrk_small
        cntx_t* cntx,
        cntl_t* cntl
      );
+#endif
+

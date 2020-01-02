@@ -5,6 +5,7 @@
 #  libraries.
 #
 #  Copyright (C) 2014, The University of Texas at Austin
+#  Copyright (C) 2019, Advanced Micro Devices, Inc.
 #
 #  Redistribution and use in source and binary forms, with or without
 #  modification, are permitted provided that the following conditions are
@@ -42,8 +43,30 @@ THIS_CONFIG    := zen
 AMD_CONFIG_FILE := amd_config.mk
 -include $(AMD_CONFIG_FILE)
 
+# Include file containing common flags for all AMD architectures
+AMD_CONFIG_FILE := amd_config.mk
+AMD_CONFIG_PATH := $(BASE_SHARE_PATH)/config/zen
+-include $(AMD_CONFIG_PATH)/$(AMD_CONFIG_FILE)
+
+ifeq ($(DEBUG_TYPE),noopt)
+COPTFLAGS      := -O0
+else
+COPTFLAGS      := -O3
+endif
+
+# Flags specific to optimized kernels.
+CKOPTFLAGS     := $(COPTFLAGS)
 ifeq ($(CC_VENDOR),gcc)
 CKVECFLAGS += -march=znver1
+endif
+
+
+# Flags specific to reference kernels.
+CROPTFLAGS     := $(CKOPTFLAGS)
+ifeq ($(CC_VENDOR),gcc)
+CRVECFLAGS     := $(CKVECFLAGS) -funsafe-math-optimizations
+else
+CRVECFLAGS     := $(CKVECFLAGS)
 endif
 
 # Store all of the variables here to new variables containing the

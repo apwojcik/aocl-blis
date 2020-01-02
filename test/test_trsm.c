@@ -116,46 +116,21 @@ int main( int argc, char** argv )
 	bli_param_map_blis_to_netlib_trans( transa, &f77_transa );
 	bli_param_map_blis_to_netlib_diag( diaga, &f77_diaga );
 
-#ifdef FILE_IN_OUT
-    if(argc < 3)
-    {
-        printf("Usage: ./test_trsm_XX.x input.csv output.csv\n");
-        exit(1);
-    }
-
-    fin = fopen(argv[1], "r");
-    if(fin == NULL)
-    {
-        printf("Error opening the input file %s\n", argv[1]);
-        exit(1);
-    }
-
-    fout = fopen(argv[2], "w");
-    if(fout == NULL)
-    {
-        printf("Error opening the output file %s\n", argv[2]);
-        exit(1);
-    }
-    fprintf(fout, "m\t n\t cs_a\t cs_b\t gflops\n");
-    printf("m\t n\t cs_a\t cs_b\t gflops\n");
-
-
-    dim_t cs_a;
-    dim_t cs_b;
-
-    while(fscanf(fin, "%ld %ld %ld %ld\n", &m, &n, &cs_a, &cs_b) == 4)
-    {
-        if((m > cs_b) || (n > cs_a)) continue;      //leading dimension should be greater than number of rows
-
-        bli_obj_create(dt, 1, 1, 0, 0, &alpha);
-        bli_obj_create(dt, n, n, 1, cs_a, &a);
-        bli_obj_create(dt, m, n, 1, cs_b, &c);
-        bli_obj_create(dt, m, n, 1, cs_b, &c_save);
-
-        bli_setsc(1, 0.0, &alpha);
-
+	// Begin with initializing the last entry to zero so that
+	// matlab allocates space for the entire array once up-front.
+	for ( p = p_begin; p + p_inc <= p_end; p += p_inc ) ;
+#ifdef BLIS
+	printf( "data_trsm_blis" );
 #else
-	for ( p = p_begin; p <= p_end; p += p_inc )
+	printf( "data_trsm_%s", BLAS );
+#endif
+	printf( "( %2lu, 1:3 ) = [ %4lu %4lu %7.2f ];\n",
+	        ( unsigned long )(p - p_begin)/p_inc + 1,
+	        ( unsigned long )0,
+	        ( unsigned long )0, 0.0 );
+
+	//for ( p = p_begin; p <= p_end; p += p_inc )
+	for ( p = p_end; p_begin <= p; p -= p_inc )
 	{
 		if ( m_input < 0 ) m = p * ( dim_t )abs(m_input);
 		else               m =     ( dim_t )    m_input;
@@ -341,7 +316,7 @@ int main( int argc, char** argv )
 #endif
 
 		printf( "( %2lu, 1:3 ) = [ %4lu %4lu %7.2f ];\n",
-		        ( unsigned long )(p - p_begin + 1)/p_inc + 1,
+		        ( unsigned long )(p - p_begin)/p_inc + 1,
 		        ( unsigned long )m,
 		        ( unsigned long )n, gflops );
 

@@ -33,9 +33,9 @@
 #
 #
 
-# FLAGS that are specific to zen2 architecture are added here.
-# FLAGS that are common for all the AMD architectures are present in config/zen/amd_config.mk
-#
+# FLAGS that are specific to the 'zen2' architecture are added here.
+# FLAGS that are common for all the AMD architectures are present in
+# config/zen/amd_config.mk.
 
 # Declare the name of the current configuration and add it to the
 # running list of configurations included by common.mk.
@@ -51,13 +51,33 @@ AMD_CONFIG_PATH := $(BASE_SHARE_PATH)/config/zen
 
 # Flags specific to optimized kernels.
 ifeq ($(CC_VENDOR),gcc)
-# gcc 9.0 (clang ?) or later:
-#CKVECFLAGS     := -march=znver2
-# gcc 6.0 (clang 4.0) or later:
-CKVECFLAGS     += -march=znver1 -mno-avx256-split-unaligned-store
-# gcc 4.9 (clang 3.5) or later:
-# possibly add zen-specific instructions: -mclzero -madx -mrdseed -mmwaitx -msha -mxsavec -mxsaves -mclflushopt -mpopcnt
-#CKVECFLAGS     := -mavx2 -mfpmath=sse -mfma -march=bdver4 -mno-fma4 -mno-tbm -mno-xop -mno-lwp
+GCC_VERSION := $(strip $(shell gcc -dumpversion | cut -d. -f1))
+#gcc or clang version must be atleast 4.0
+# gcc 9.0 or later:
+ifeq ($(shell test $(GCC_VERSION) -ge 9; echo $$?),0)
+CKVECFLAGS     += -march=znver2
+else
+# If gcc is older than 9.1.0 but at least 6.1.0, then we can use -march=znver1
+# as the fallback option.
+CRVECFLAGS += -march=znver1 -mno-avx256-split-unaligned-store
+CKVECFLAGS += -march=znver1 -mno-avx256-split-unaligned-store
+endif
+else
+ifeq ($(CC_VENDOR),clang)
+ifeq ($(strip $(shell clang -v |&head -1 |grep -c 'AOCC.LLVM.2.0.0')),1)
+CKVECFLAGS += -march=znver2
+else
+#if compiling with clang
+VENDOR_STRING := $(strip $(shell ${CC_VENDOR} --version | egrep -o '[0-9]+\.[0-9]+\.?[0-9]*'))
+CC_MAJOR := $(shell (echo ${VENDOR_STRING} | cut -d. -f1))
+#clang 9.0 or later:
+ifeq ($(shell test $(CC_MAJOR) -ge 9; echo $$?),0)
+CKVECFLAGS += -march=znver2
+else
+CKVECFLAGS += -march=znver1
+endif
+endif
+endif
 endif
 # Store all of the variables here to new variables containing the
 # configuration name.

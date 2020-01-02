@@ -36,6 +36,12 @@
 #ifndef BLIS_SYSTEM_H
 #define BLIS_SYSTEM_H
 
+// NOTE: If not yet defined, we define _POSIX_C_SOURCE to make sure that
+// various parts of POSIX are defined and made available.
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -79,7 +85,8 @@
 #elif defined(__bg__)
   #define BLIS_OS_BGP 1
 #elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || \
-      defined(__bsdi__) || defined(__DragonFly__) || defined(__FreeBSD_kernel__)
+      defined(__bsdi__) || defined(__DragonFly__) || \
+      defined(__FreeBSD_kernel__) || defined(__HAIKU__)
   #define BLIS_OS_BSD 1
 #elif defined(EMSCRIPTEN)
   #define BLIS_OS_EMSCRIPTEN
@@ -111,7 +118,8 @@
 #elif BLIS_OS_OSX
   #include <mach/mach_time.h>
 #else
-  #include <sys/time.h>
+  //#include <sys/time.h>
+
   #include <time.h>
 #endif
 

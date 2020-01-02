@@ -4,7 +4,7 @@
 #  An object-based framework for developing high-performance BLAS-like
 #  libraries.
 #
-#  Copyright (C) 2014, The University of Texas at Austin
+#  Copyright (C) 2019, Advanced Micro Devices, Inc.
 #
 #  Redistribution and use in source and binary forms, with or without
 #  modification, are permitted provided that the following conditions are
@@ -32,11 +32,7 @@
 #
 #
 
-#All the common flags for AMD architectures will be added here
-
-#
-# --- Determine the C compiler and related flags ---
-#
+# All the common flags for AMD architectures will be added here
 
 # NOTE: The build system will append these variables with various
 # general-purpose/configuration-agnostic flags in common.mk. You
@@ -59,17 +55,13 @@ endif
 # Flags specific to optimized kernels.
 CKOPTFLAGS     := $(COPTFLAGS)
 ifeq ($(CC_VENDOR),gcc)
-# gcc 6.0 (clang 4.0) or later:
 CKVECFLAGS     := -mavx2 -mfpmath=sse -mfma
-# gcc 4.9 (clang 3.5) or later:
-# possibly add zen-specific instructions: -mclzero -madx -mrdseed -mmwaitx -msha -mxsavec -mxsaves -mclflushopt -mpopcnt
-#CKVECFLAGS     := -mavx2 -mfpmath=sse -mfma -march=bdver4 -mno-fma4 -mno-tbm -mno-xop -mno-lwp
 else
 ifeq ($(CC_VENDOR),clang)
-#if compiling with AOCC, use these flags
-CKVECFLAGS     := -mavx2 -mfpmath=sse -mfma -march=znver1 -mno-fma4 -mno-tbm -mno-xop -mno-lwp -mllvm -disable-licm-vrp 
-# if compiling with vanilla clang use these flags
-#CKVECFLAGS     := -mavx2 -mfpmath=sse -mfma -march=znver1 -mno-fma4 -mno-tbm -mno-xop -mno-lwp
+CKVECFLAGS     := -mavx2 -mfpmath=sse -mfma -mno-fma4 -mno-tbm -mno-xop -mno-lwp
+ifeq ($(strip $(shell clang -v |&head -1 |grep -c 'AOCC.LLVM.2.0.0')),1)
+CKVECFLAGS += -mllvm -disable-licm-vrp
+endif
 else
 $(error gcc or clang are required for this configuration.)
 endif
@@ -77,5 +69,13 @@ endif
 
 # Flags specific to reference kernels.
 CROPTFLAGS     := $(CKOPTFLAGS)
+ifeq ($(CC_VENDOR),gcc)
+CRVECFLAGS     := $(CKVECFLAGS) -funsafe-math-optimizations -ffp-contract=fast
+else
+ifeq ($(CC_VENDOR),clang)
+CRVECFLAGS     := $(CKVECFLAGS) -funsafe-math-optimizations -ffp-contract=fast
+else
 CRVECFLAGS     := $(CKVECFLAGS)
+endif
+endif
 

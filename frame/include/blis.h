@@ -88,6 +88,7 @@ extern "C" {
 #include "bli_l1f_ker_prot.h"
 #include "bli_l1m_ker_prot.h"
 #include "bli_l3_ukr_prot.h"
+#include "bli_l3_sup_ker_prot.h"
 
 #include "bli_arch_config_pre.h"
 #include "bli_arch_config.h"
@@ -128,6 +129,8 @@ extern "C" {
 #include "bli_getopt.h"
 #include "bli_opid.h"
 #include "bli_cntl.h"
+#include "bli_env.h"
+#include "bli_pack.h"
 #include "bli_info.h"
 #include "bli_arch.h"
 #include "bli_cpuid.h"
