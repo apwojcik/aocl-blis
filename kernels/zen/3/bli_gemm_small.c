@@ -49,8 +49,6 @@
 #define D_BLIS_SMALL_K_RECT_MATRIX_THRES (BLIS_SMALL_K_RECT_MATRIX_THRES / 2)
 #define BLIS_ATBN_M_THRES 40 // Threshold value of M for/below which small matrix code is called. 
 #define AT_MR 4 // The kernel dimension of the A transpose GEMM kernel.(AT_MR * NR).
-static double D_A_pack[D_SCRATCH_DIM]  __attribute__((aligned(64)));
-static float A_pack[F_SCRATCH_DIM]  __attribute__((aligned(64)));
 
 err_t bli_sgemm_small
      (
