@@ -35,8 +35,7 @@
 #include <unistd.h>
 #include "blis.h"
 
-//#define FILE_IN_OUT     //File based input matrix dimensions
-
+//#define FILE_IN_OUT
 //#define PRINT
 
 int main( int argc, char** argv )
@@ -67,19 +66,12 @@ int main( int argc, char** argv )
 	dim_t p;
 	dim_t p_begin, p_end, p_inc;
 	int   m_input, n_input;
-
 #endif
-
-	//bli_init();
-
-	//bli_error_checking_level_set( BLIS_NO_ERROR_CHECKING );
-
-	n_repeats = 100;
-
 #ifndef FILE_IN_OUT
+	n_repeats = 50;
 #ifndef PRINT
-	p_begin = 5000;
-	p_end   = 5000;
+	p_begin = 200;
+	p_end   = 2000;
 	p_inc   = 200;
 
 	m_input = -1;
@@ -109,28 +101,53 @@ int main( int argc, char** argv )
 
 	transa = BLIS_NO_TRANSPOSE;
 
-	diaga = BLIS_UNIT_DIAG;
+	diaga = BLIS_NONUNIT_DIAG;
 
 	bli_param_map_blis_to_netlib_side( side, &f77_side );
 	bli_param_map_blis_to_netlib_uplo( uploa, &f77_uploa );
 	bli_param_map_blis_to_netlib_trans( transa, &f77_transa );
 	bli_param_map_blis_to_netlib_diag( diaga, &f77_diaga );
 
-	// Begin with initializing the last entry to zero so that
-	// matlab allocates space for the entire array once up-front.
-	for ( p = p_begin; p + p_inc <= p_end; p += p_inc ) ;
-#ifdef BLIS
-	printf( "data_trsm_blis" );
-#else
-	printf( "data_trsm_%s", BLAS );
-#endif
-	printf( "( %2lu, 1:3 ) = [ %4lu %4lu %7.2f ];\n",
-	        ( unsigned long )(p - p_begin)/p_inc + 1,
-	        ( unsigned long )0,
-	        ( unsigned long )0, 0.0 );
+#ifdef FILE_IN_OUT
+    if(argc < 4)
+    {
+        printf("Usage: ./test_trsm_XX.x input.csv output.csv n_repeats\n");
+        exit(1);
+    }
 
-	//for ( p = p_begin; p <= p_end; p += p_inc )
-	for ( p = p_end; p_begin <= p; p -= p_inc )
+    fin = fopen(argv[1], "r");
+    if(fin == NULL)
+    {
+        printf("Error opening the input file %s\n", argv[1]);
+        exit(1);
+    }
+    fout = fopen(argv[2], "w");
+    if(fout == NULL)
+    {
+        printf("Error opening the output file %s\n", argv[2]);
+        exit(1);
+    }
+    n_repeats = atoi(argv[3]);
+    fprintf(fout, "m,n,cs_a,cs_b,gflops\n");
+    printf("m\t n\t cs_a\t cs_b\t gflops\n");
+
+    dim_t cs_a, cs_b;
+    while(fscanf(fin, "%ld %ld %ld %ld\n", &m, &n, &cs_a, &cs_b) == 4)
+    {
+
+		bli_obj_create( dt, 1, 1, 0, 0, &alpha );
+
+		if ( bli_is_left( side ) )
+			bli_obj_create( dt, m, m, 1, cs_a, &a );
+		else
+			bli_obj_create( dt, n, n, 1, cs_a, &a );
+		bli_obj_create( dt, m, n, 1, cs_b, &c );
+		bli_obj_create( dt, m, n, 1, cs_b, &c_save );
+
+        bli_setsc(2, 0.0, &alpha);
+#else
+
+	for ( p = p_begin; p <= p_end; p += p_inc )
 	{
 		if ( m_input < 0 ) m = p * ( dim_t )abs(m_input);
 		else               m =     ( dim_t )    m_input;
@@ -149,6 +166,7 @@ int main( int argc, char** argv )
 		bli_setsc(  (2.0/1.0), 1.0, &alpha );
 
 #endif
+
 		bli_randm( &a );
 		bli_randm( &c );
 
@@ -164,8 +182,6 @@ int main( int argc, char** argv )
 
 		// Load the diagonal of A to make it more likely to be invertible.
 		bli_shiftd( &BLIS_TWO, &a );
-
-
 
 		bli_copym( &c, &c_save );
 	
@@ -186,7 +202,7 @@ int main( int argc, char** argv )
 			bli_printm( "c", &c, "%4.1f", "" );
 #endif
 
-#if 0 //def BLIS
+#ifdef BLIS
 
 			bli_trsm( side,
 			          &alpha,
@@ -291,21 +307,17 @@ int main( int argc, char** argv )
 
 		if ( bli_is_complex( dt ) ) gflops *= 4.0;
 
-
 #ifdef FILE_IN_OUT
-
-    fprintf(fout, "%lu \t %lu\t %lu\t %lu\t %7.2f\n", (unsigned long)m,
-                                                    (unsigned long)n,
-                                                    (unsigned long)cs_a,
-                                                    (unsigned long)(cs_b),
-                                                    gflops
-                                                    );
-    printf("%lu \t %lu\t %lu\t %lu\t %7.2f\n", (unsigned long)m,
-                                                    (unsigned long)n,
-                                                    (unsigned long)cs_a,
-                                                    (unsigned long)(cs_b),
-                                                    gflops
-                                                    );
+    fprintf(fout, "%lu,%lu,%lu,%lu,%7.2f\n", (unsigned long)m,
+                                             (unsigned long)n,
+                                             (unsigned long)cs_a,
+                                             (unsigned long)cs_b,
+                                             gflops);
+    printf("%lu %lu %lu %lu %7.2f\n", (unsigned long)m,
+                                             (unsigned long)n,
+                                             (unsigned long)cs_a,
+                                             (unsigned long)cs_b,
+                                             gflops);
     fflush(fout);
 #else
 
@@ -314,27 +326,23 @@ int main( int argc, char** argv )
 #else
 		printf( "data_trsm_%s", BLAS );
 #endif
-
 		printf( "( %2lu, 1:3 ) = [ %4lu %4lu %7.2f ];\n",
-		        ( unsigned long )(p - p_begin)/p_inc + 1,
+		        ( unsigned long )(p - p_begin + 1)/p_inc + 1,
 		        ( unsigned long )m,
 		        ( unsigned long )n, gflops );
-
+        fflush(stdout);
 #endif
-
 		bli_obj_free( &alpha );
 
 		bli_obj_free( &a );
 		bli_obj_free( &c );
 		bli_obj_free( &c_save );
 	}
-
-	//bli_finalize();
-
 #ifdef FILE_IN_OUT
     fclose(fin);
     fclose(fout);
 #endif
+	//bli_finalize();
 
 	return 0;
 }
