@@ -278,6 +278,34 @@ dim_t bli_determine_blocksize_b
        cntx_t* cntx
      );
 
+dim_t bli_determine_blocksize_trsm
+     (
+       dir_t   direct,
+       dim_t   i,
+       dim_t   dim,
+       obj_t*  obj,
+       bszid_t bszid,
+       cntx_t* cntx
+     );
+
+dim_t bli_determine_blocksize_trsm_f
+     (
+       dim_t   i,
+       dim_t   dim,
+       obj_t*  obj,
+       bszid_t bszid,
+       cntx_t* cntx
+     );
+
+dim_t bli_determine_blocksize_trsm_b
+     (
+       dim_t   i,
+       dim_t   dim,
+       obj_t*  obj,
+       bszid_t bszid,
+       cntx_t* cntx
+     );
+
 dim_t bli_determine_blocksize_f_sub
      (
        dim_t  i,

@@ -67,7 +67,7 @@ void bli_trsm_blk_var2
 	for ( dim_t i = my_start; i < my_end; i += b_alg )
 	{
 		// Determine the current algorithmic blocksize.
-		b_alg = bli_determine_blocksize( direct, i, my_end, b,
+		b_alg = bli_determine_blocksize_trsm( direct, i, my_end, b,
 		                                 bli_cntl_bszid( cntl ), cntx );
 
 		// Acquire partitions for B1 and C1.

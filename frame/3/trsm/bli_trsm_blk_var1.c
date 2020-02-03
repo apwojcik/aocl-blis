@@ -80,7 +80,7 @@ void bli_trsm_blk_var1
 	{
 		obj_t a11_1, c1_1;
 
-		b_alg = bli_determine_blocksize( direct, i, my_end, &a11,
+		b_alg = bli_determine_blocksize_trsm( direct, i, my_end, &a11,
 		                                 bli_cntl_bszid( cntl ), cntx );
 
 		// Acquire partitions for A1 and C1.
