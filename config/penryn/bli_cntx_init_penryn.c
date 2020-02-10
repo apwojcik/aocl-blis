@@ -77,5 +77,17 @@ void bli_cntx_init_penryn( cntx_t* cntx )
 	  BLIS_MR, &blkszs[ BLIS_MR ], BLIS_MR,
 	  cntx
 	);
+	// Update the context with the current architecture's register and cache
+	// blocksizes (and multiples) for level-3 TRSM problems.
+	bli_cntx_set_trsm_blkszs
+	(
+	  5,
+	  BLIS_NC, &blkszs[ BLIS_NC ],
+	  BLIS_KC, &blkszs[ BLIS_KC ],
+	  BLIS_MC, &blkszs[ BLIS_MC ],
+	  BLIS_NR, &blkszs[ BLIS_NR ],
+	  BLIS_MR, &blkszs[ BLIS_MR ],
+	  cntx
+	);
 }
 

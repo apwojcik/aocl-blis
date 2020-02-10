@@ -135,5 +135,20 @@ void bli_cntx_init_knl( cntx_t* cntx )
 	  BLIS_DF, &blkszs[ BLIS_DF ], BLIS_DF,
 	  cntx
 	);
+
+    // Update the context with the current architecture's register and cache
+    // blocksizes for level-3 TRSM problems.
+    bli_cntx_set_trsm_blkszs
+    (
+     5,
+      BLIS_NC, &blkszs[ BLIS_NC ],
+	  BLIS_KC, &blkszs[ BLIS_KC ],
+	  BLIS_MC, &blkszs[ BLIS_MC ],
+	  BLIS_NR, &blkszs[ BLIS_NR ],
+	  BLIS_MR, &blkszs[ BLIS_MR ],
+	  cntx
+    );
+
+
 }
 
