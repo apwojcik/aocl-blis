@@ -55,8 +55,9 @@ void PASTEF77(ch,blasname) \
 	inc_t  incx0; \
 	inc_t  incy0; \
 \
-	/* Initialize BLIS. */ \
-	bli_init_auto(); \
+	bli_init_once(); \
+\
+	const num_t dt = PASTEMAC(ch,type); \
 \
 	/* Convert/typecast negative values of n to zero. */ \
 	bli_convert_blas_dim1( *n, n0 ); \
@@ -66,20 +67,20 @@ void PASTEF77(ch,blasname) \
 	bli_convert_blas_incv( n0, (ftype*)x, *incx, x0, incx0 ); \
 	bli_convert_blas_incv( n0, (ftype*)y, *incy, y0, incy0 ); \
 \
+	cntx_t* cntx = bli_gks_query_cntx(); \
+\
 	/* Call BLIS interface. */ \
-	PASTEMAC2(ch,blisname,BLIS_TAPI_EX_SUF) \
+	PASTECH2(ch,blisname,_ker_ft) f = bli_cntx_get_l1v_ker_dt( dt, BLIS_AXPYV_KER, cntx); \
+	f \
 	( \
 	  BLIS_NO_CONJUGATE, \
 	  n0, \
 	  (ftype*)alpha, \
 	  x0, incx0, \
 	  y0, incy0, \
-	  NULL, \
-	  NULL  \
+	  NULL \
 	); \
 \
-	/* Finalize BLIS. */ \
-	bli_finalize_auto(); \
 }
 
 #ifdef BLIS_ENABLE_BLAS
