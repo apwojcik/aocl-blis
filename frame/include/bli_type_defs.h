@@ -6,7 +6,7 @@
 
    Copyright (C) 2014, The University of Texas at Austin
    Copyright (C) 2016, Hewlett Packard Enterprise Development LP
-   Copyright (C) 2018-2019, Advanced Micro Devices, Inc.
+   Copyright (C) 2020, Advanced Micro Devices, Inc.
 
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions are
@@ -1420,7 +1420,7 @@ typedef struct cntx_s
 	blksz_t   blkszs[ BLIS_NUM_BLKSZS ];
 	bszid_t   bmults[ BLIS_NUM_BLKSZS ];
 
-    blksz_t   trsm_blkszs[ BLIS_NUM_BLKSZS ];
+	blksz_t   trsm_blkszs[ BLIS_NUM_BLKSZS ];
 
 	func_t    l3_vir_ukrs[ BLIS_NUM_LEVEL3_UKRS ];
 	func_t    l3_nat_ukrs[ BLIS_NUM_LEVEL3_UKRS ];
@@ -1454,6 +1454,7 @@ typedef struct cntx_s
 typedef struct rntm_s
 {
 	// "External" fields: these may be queried by the end-user.
+	bool_t    auto_factor;
 
 	dim_t     num_threads;
 	dim_t     thrloop[ BLIS_NUM_LOOPS ];

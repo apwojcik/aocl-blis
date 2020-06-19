@@ -66,6 +66,7 @@ void PASTEF77(ch,blasname) \
 	inc_t   rs_b, cs_b; \
 	inc_t   rs_c, cs_c; \
 \
+	AOCL_DTL_TRACE_ENTRY(AOCL_DTL_LEVEL_TRACE_1); \
 	/* Initialize BLIS. */ \
 	bli_init_auto(); \
 \
@@ -120,7 +121,8 @@ void PASTEF77(ch,blasname) \
 	  NULL  \
 	); \
 \
-	/* Finalize BLIS. */ \
+	AOCL_DTL_TRACE_EXIT(AOCL_DTL_LEVEL_TRACE_1) \
+	/* Finalize BLIS. */				 \
 	bli_finalize_auto(); \
 }
 
@@ -146,6 +148,7 @@ void PASTEF77(ch,blasname) \
 	trans_t blis_transa; \
 	trans_t blis_transb; \
 	dim_t   m0, n0, k0; \
+	AOCL_DTL_TRACE_ENTRY(AOCL_DTL_LEVEL_INFO)	\
 \
 	/* Initialize BLIS. */ \
 	bli_init_auto(); \
@@ -217,7 +220,8 @@ void PASTEF77(ch,blasname) \
 	  NULL  \
 	); \
 \
-	/* Finalize BLIS. */ \
+	AOCL_DTL_TRACE_EXIT(AOCL_DTL_LEVEL_INFO) \
+	/* Finalize BLIS. */				 \
 	bli_finalize_auto(); \
 }
 

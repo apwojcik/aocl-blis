@@ -5,6 +5,7 @@
 #  libraries.
 #
 #  Copyright (C) 2014, The University of Texas at Austin
+#  Copyright (C) 2020, Advanced Micro Devices, Inc.
 #
 #  Redistribution and use in source and binary forms, with or without
 #  modification, are permitted provided that the following conditions are
@@ -143,9 +144,17 @@ get-frame-cflags-for     = $(strip $(call load-var-for,COPTFLAGS,$(1)) \
                                    $(BUILD_SYMFLAGS) \
                             )
 
+get-aocldtl-cflags-for     = $(strip $(call load-var-for,COPTFLAGS,$(1)) \
+                                   $(call get-noopt-cflags-for,$(1)) \
+                                   $(BUILD_CPPFLAGS) \
+                                   $(BUILD_SYMFLAGS) \
+                            )
+
+
 get-kernel-cflags-for    = $(strip $(call load-var-for,CKOPTFLAGS,$(1)) \
                                    $(call load-var-for,CKVECFLAGS,$(1)) \
                                    $(call get-noopt-cflags-for,$(1)) \
+                                   $(COMPSIMDFLAGS) \
                                    $(BUILD_CPPFLAGS) \
                                    $(BUILD_SYMFLAGS) \
                             )
@@ -187,6 +196,7 @@ get-refinit-text-for    = "('$(1)' CFLAGS for ref. kernel init)"
 get-refkern-text-for    = "('$(1)' CFLAGS for ref. kernels)"
 get-config-text-for     = "('$(1)' CFLAGS for config code)"
 get-frame-text-for      = "('$(1)' CFLAGS for framework code)"
+get-aocldtl-text-for    = "('$(1)' CFLAGS for AOCL debug and trace code)"
 get-kernel-text-for     = "('$(1)' CFLAGS for kernels)"
 get-sandbox-c99text-for = "('$(1)' CFLAGS for sandboxes)"
 get-sandbox-cxxtext-for = "('$(1)' CXXFLAGS for sandboxes)"
@@ -202,6 +212,11 @@ get-sandbox-cxxtext-for = "('$(1)' CXXFLAGS for sandboxes)"
 files-that-contain      = $(strip $(foreach f, $(1), $(if $(findstring $(2),$(f)),$(f),)))
 files-that-dont-contain = $(strip $(foreach f, $(1), $(if $(findstring $(2),$(f)),,$(f))))
 
+# Define a function that removes duplicate words from a list.
+# NOTE: This function was obtained via [1]; thanks bobbogo for this
+# concise definition.
+# [1] https://stackoverflow.com/questions/16144115/makefile-remove-duplicate-words-without-sorting
+rm-dupls = $(if $1,$(firstword $1) $(call rm-dupls,$(filter-out $(firstword $1),$1)))
 
 
 #
@@ -285,6 +300,7 @@ FRAGMENT_MK        := .fragment.mk
 BUILD_DIR          := build
 CONFIG_DIR         := config
 FRAME_DIR          := frame
+AOCLDTL_DIR        := aocl_dtl
 REFKERN_DIR        := ref_kernels
 KERNELS_DIR        := kernels
 SANDBOX_DIR        := sandbox
@@ -306,6 +322,8 @@ KERNELS_SRC_SUFS   := c s S
 
 FRAME_SRC_SUFS     := c
 
+AOCLDTL_SRC_SUFS   := c
+
 SANDBOX_C99_SUFS   := c
 SANDBOX_CXX_SUFS   := cc cpp cxx
 SANDBOX_SRC_SUFS   := $(SANDBOX_C99_SUFS) $(SANDBOX_CXX_SUFS)
@@ -313,16 +331,20 @@ SANDBOX_SRC_SUFS   := $(SANDBOX_C99_SUFS) $(SANDBOX_CXX_SUFS)
 # Header suffixes.
 FRAME_HDR_SUFS     := h
 
+AOCLDTL_HDR_SUFS   := h
+
 SANDBOX_H99_SUFS   := h
 SANDBOX_HXX_SUFS   := hh hpp hxx
 SANDBOX_HDR_SUFS   := $(SANDBOX_H99_SUFS) $(SANDBOX_HXX_SUFS)
 
 # Combine all header suffixes and remove duplicates via sort().
-ALL_HDR_SUFS       := $(sort $(FRAME_HDR_SUFS) \
-                             $(SANDBOX_HDR_SUFS) )
+ALL_HDR_SUFS       := $(sort $(FRAME_HDR_SUFS)   \
+                             $(SANDBOX_HDR_SUFS) \
+                             $(AOCLDTL_HDR_SUFS))
 
-ALL_H99_SUFS       := $(sort $(FRAME_HDR_SUFS) \
-                             $(SANDBOX_H99_SUFS) )
+ALL_H99_SUFS       := $(sort $(FRAME_HDR_SUFS)   \
+                             $(SANDBOX_H99_SUFS) \
+                             $(AOCLDTL_HDR_SUFS))
 
 # The names of scripts that check output from the BLAS test drivers and
 # BLIS test suite.
@@ -351,6 +373,7 @@ SHELL              := bash
 # and optimized kernel code.
 CONFIG_PATH        := $(DIST_PATH)/$(CONFIG_DIR)
 FRAME_PATH         := $(DIST_PATH)/$(FRAME_DIR)
+AOCLDTL_PATH       := $(DIST_PATH)/$(AOCLDTL_DIR)
 REFKERN_PATH       := $(DIST_PATH)/$(REFKERN_DIR)
 KERNELS_PATH       := $(DIST_PATH)/$(KERNELS_DIR)
 SANDBOX_PATH       := $(DIST_PATH)/$(SANDBOX_DIR)
@@ -360,6 +383,7 @@ SANDBOX_PATH       := $(DIST_PATH)/$(SANDBOX_DIR)
 # kernel code, and optimized kernel code.
 CONFIG_FRAG_PATH   := ./obj/$(CONFIG_NAME)/$(CONFIG_DIR)
 FRAME_FRAG_PATH    := ./obj/$(CONFIG_NAME)/$(FRAME_DIR)
+AOCLDTL_FRAG_PATH  := ./obj/$(CONFIG_NAME)/$(AOCLDTL_DIR)
 REFKERN_FRAG_PATH  := ./obj/$(CONFIG_NAME)/$(REFKERN_DIR)
 KERNELS_FRAG_PATH  := ./obj/$(CONFIG_NAME)/$(KERNELS_DIR)
 SANDBOX_FRAG_PATH  := ./obj/$(CONFIG_NAME)/$(SANDBOX_DIR)
@@ -516,13 +540,13 @@ endif
 ifeq ($(OS_NAME),Darwin)
 # OS X shared library link flags.
 SOFLAGS    := -dynamiclib
-SOFLAGS    += -Wl,-install_name,$(LIBBLIS_SONAME)
+SOFLAGS    += -Wl,-install_name,$(libdir)/$(LIBBLIS_SONAME)
 else
 SOFLAGS    := -shared
 ifeq ($(IS_WIN),yes)
 # Windows shared library link flags.
 ifeq ($(CC_VENDOR),clang)
-SOFLAGS    += -Wl,-implib:$(BASE_LIB_PATH)/$(LIBBLIS).lib
+SOFLAGS    += -Wl,-soname,$(LIBBLIS_SONAME)
 else
 SOFLAGS    += -Wl,--out-implib,$(BASE_LIB_PATH)/$(LIBBLIS).dll.a
 endif
@@ -800,8 +824,6 @@ ENABLE_VERBOSE := no
 BLIS_ENABLE_TEST_OUTPUT := no
 endif
 
-
-
 #
 # --- Append OS-specific libraries to LDFLAGS ----------------------------------
 #
@@ -815,9 +837,6 @@ endif
 #
 # --- LDFLAGS cleanup ----------------------------------------------------------
 #
-
-# Remove duplicate flags/options in LDFLAGS (such as -lpthread) by sorting.
-LDFLAGS := $(sort $(LDFLAGS))
 
 
 
@@ -838,6 +857,7 @@ MK_CONFIG_SRC      :=
 MK_KERNELS_SRC     :=
 MK_REFKERN_SRC     :=
 MK_FRAME_SRC       :=
+MK_AOCLDTL_SRC     :=
 MK_SANDBOX_SRC     :=
 
 # -- config --
@@ -887,6 +907,7 @@ PARENT_PATH        := $(OBJ_DIR)/$(CONFIG_NAME)
 # reference kernels and portable framework.
 -include $(addsuffix /$(FRAGMENT_MK), $(REFKERN_FRAG_PATH))
 -include $(addsuffix /$(FRAGMENT_MK), $(FRAME_FRAG_PATH))
+-include $(addsuffix /$(FRAGMENT_MK), $(AOCLDTL_FRAG_PATH))
 
 # -- sandbox --
 
@@ -1060,5 +1081,4 @@ BUILD_CPPFLAGS := -DBLIS_IS_BUILDING_LIBRARY
 
 # end of ifndef COMMON_MK_INCLUDED conditional block
 endif
-
 

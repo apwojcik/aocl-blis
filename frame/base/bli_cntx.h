@@ -6,7 +6,7 @@
 
    Copyright (C) 2014, The University of Texas at Austin
    Copyright (C) 2016, Hewlett Packard Enterprise Development LP
-   Copyright (C) 2019, Advanced Micro Devices, Inc.
+   Copyright (C) 2020, Advanced Micro Devices, Inc.
 
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions are
@@ -86,9 +86,8 @@ static bszid_t* bli_cntx_bmults_buf( cntx_t* cntx )
 }
 static blksz_t* bli_cntx_trsm_blkszs_buf( cntx_t* cntx )
 {
-    return cntx->trsm_blkszs;
+	return cntx->trsm_blkszs;
 }
-
 static func_t* bli_cntx_l3_vir_ukrs_buf( cntx_t* cntx )
 {
 	return cntx->l3_vir_ukrs;
@@ -312,7 +311,7 @@ static bool_t bli_cntx_l3_sup_thresh_is_met( num_t dt, dim_t m, dim_t n, dim_t k
 {
 	if ( m < bli_cntx_get_l3_sup_thresh_dt( dt, BLIS_MT, cntx ) ) return TRUE;
 	if ( n < bli_cntx_get_l3_sup_thresh_dt( dt, BLIS_NT, cntx ) ) return TRUE;
-//	if ( k < bli_cntx_get_l3_sup_thresh_dt( dt, BLIS_KT, cntx ) ) return TRUE;
+	if ( k < bli_cntx_get_l3_sup_thresh_dt( dt, BLIS_KT, cntx ) ) return TRUE;
 
 	return FALSE;
 }

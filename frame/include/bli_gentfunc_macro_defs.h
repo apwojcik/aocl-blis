@@ -5,6 +5,7 @@
    libraries.
 
    Copyright (C) 2014, The University of Texas at Austin
+   Copyright (C) 2020, Advanced Micro Devices, Inc.
 
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions are
@@ -56,6 +57,11 @@ GENTFUNC( scomplex, c, blasname, blisname ) \
 GENTFUNC( dcomplex, z, blasname, blisname )
 
 
+#define INSERT_GENTFUNC_BLAS_CZ( blasname, blisname ) \
+\
+GENTFUNC( scomplex, c, blasname, blisname ) \
+GENTFUNC( dcomplex, z, blasname, blisname )
+
 // -- Basic one-operand macro with real domain only --
 
 
@@ -75,6 +81,13 @@ GENTFUNCCO( dcomplex, double, z, d, blasname, blisname )
 
 
 // -- Basic one-operand macro with conjugation (used only for dot, ger) --
+
+#define INSERT_GENTFUNCDOT_BLAS_CZ( blasname, blisname ) \
+\
+GENTFUNCDOT( scomplex, c, c, BLIS_CONJUGATE,    blasname, blisname ) \
+GENTFUNCDOT( scomplex, c, u, BLIS_NO_CONJUGATE, blasname, blisname ) \
+GENTFUNCDOT( dcomplex, z, c, BLIS_CONJUGATE,    blasname, blisname ) \
+GENTFUNCDOT( dcomplex, z, u, BLIS_NO_CONJUGATE, blasname, blisname )
 
 
 #define INSERT_GENTFUNCDOT_BLAS( blasname, blisname ) \
@@ -112,6 +125,14 @@ GENTFUNCR2( dcomplex, double, z, d, blasname, blisname )
 // -- Extended two-operand macro (used only for scal) --
 
 
+#define INSERT_GENTFUNCSCAL_BLAS_CZ( blasname, blisname ) \
+\
+GENTFUNCSCAL( scomplex, scomplex, c,  , blasname, blisname ) \
+GENTFUNCSCAL( dcomplex, dcomplex, z,  , blasname, blisname ) \
+GENTFUNCSCAL( scomplex, float,    c, s, blasname, blisname ) \
+GENTFUNCSCAL( dcomplex, double,   z, d, blasname, blisname )
+
+
 #define INSERT_GENTFUNCSCAL_BLAS( blasname, blisname ) \
 \
 GENTFUNCSCAL( float,    float,    s,  , blasname, blisname ) \
@@ -120,8 +141,6 @@ GENTFUNCSCAL( scomplex, scomplex, c,  , blasname, blisname ) \
 GENTFUNCSCAL( dcomplex, dcomplex, z,  , blasname, blisname ) \
 GENTFUNCSCAL( scomplex, float,    c, s, blasname, blisname ) \
 GENTFUNCSCAL( dcomplex, double,   z, d, blasname, blisname )
-
-
 
 
 // -- Macros for functions with one operand ------------------------------------
@@ -137,6 +156,13 @@ GENTFUNC( float,    s, tfuncname ) \
 GENTFUNC( double,   d, tfuncname ) \
 GENTFUNC( scomplex, c, tfuncname ) \
 GENTFUNC( dcomplex, z, tfuncname )
+
+
+#define INSERT_GENTFUNC_BASIC0_CZ( tfuncname ) \
+\
+GENTFUNC( scomplex, c, tfuncname ) \
+GENTFUNC( dcomplex, z, tfuncname )
+
 
 // -- (one auxiliary argument) --
 

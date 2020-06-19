@@ -54,9 +54,28 @@ void PASTEMAC(opname,EX_SUF) \
        BLIS_OAPI_EX_PARAMS  \
      ) \
 { \
+	AOCL_DTL_TRACE_ENTRY(AOCL_DTL_LEVEL_TRACE_2) \
 	bli_init_once(); \
 \
 	BLIS_OAPI_EX_DECLS \
+	AOCL_DTL_LOG_GEMM_INPUTS(AOCL_DTL_LEVEL_TRACE_2, alpha, a, b, beta, c); \
+\
+	/* If C has a zero dimension, return early.	*/	\
+	if ( bli_obj_has_zero_dim( c ) ) {\
+		AOCL_DTL_TRACE_EXIT(AOCL_DTL_LEVEL_TRACE_2) \
+		return;									 \
+	}\
+\
+	/* if alpha or A or B has a zero dimension, \
+	   scale C by beta and return early. */ \
+	if ( bli_obj_equals( alpha, &BLIS_ZERO ) || \
+		 bli_obj_has_zero_dim( a ) || \
+		 bli_obj_has_zero_dim( b ) ) \
+	{\
+		bli_scalm( beta, c ); \
+		AOCL_DTL_TRACE_EXIT(AOCL_DTL_LEVEL_TRACE_2)	\
+		return;\
+	}\
 \
 	/* If the rntm is non-NULL, it may indicate that we should forgo sup
 	   handling altogether. */ \
@@ -71,7 +90,10 @@ void PASTEMAC(opname,EX_SUF) \
 		   the function returns with BLIS_FAILURE, which causes execution to
 		   proceed towards the conventional implementation. */ \
 		err_t result = PASTEMAC(opname,sup)( alpha, a, b, beta, c, cntx, rntm ); \
-		if ( result == BLIS_SUCCESS ) return; \
+		if ( result == BLIS_SUCCESS ) {\
+				AOCL_DTL_TRACE_EXIT(AOCL_DTL_LEVEL_TRACE_2) \
+			return;					   \
+		} \
 	} \
 \
 	/* Only proceed with an induced method if each of the operands have a
@@ -96,6 +118,8 @@ void PASTEMAC(opname,EX_SUF) \
 	{ \
 		PASTEMAC(opname,nat)( alpha, a, b, beta, c, cntx, rntm ); \
 	} \
+ \
+	AOCL_DTL_TRACE_EXIT(AOCL_DTL_LEVEL_INFO) \
 }
 
 GENFRONT( gemm )

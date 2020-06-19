@@ -52,13 +52,18 @@ void bli_gemm_int
 	obj_t        b_local;
 	obj_t        c_local;
 	gemm_var_oft f;
-
+	AOCL_DTL_TRACE_ENTRY(AOCL_DTL_LEVEL_TRACE_4);
+	AOCL_DTL_LOG_GEMM_INPUTS(AOCL_DTL_LEVEL_TRACE_4, alpha, a, b, beta, c);
+	
 	// Check parameters.
 	if ( bli_error_checking_is_enabled() )
 		bli_gemm_basic_check( alpha, a, b, beta, c, cntx );
 
 	// If C has a zero dimension, return early.
-	if ( bli_obj_has_zero_dim( c ) ) return;
+	if ( bli_obj_has_zero_dim( c ) ) {
+		AOCL_DTL_TRACE_EXIT(AOCL_DTL_LEVEL_TRACE_4);
+		return;
+	}
 
 	// If A or B has a zero dimension, scale C by beta and return early.
 	if ( bli_obj_has_zero_dim( a ) ||
@@ -66,7 +71,8 @@ void bli_gemm_int
 	{
         if ( bli_thread_am_ochief( thread ) )
 		    bli_scalm( beta, c );
-        bli_thread_obarrier( thread );
+        bli_thread_barrier( thread );
+		AOCL_DTL_TRACE_EXIT(AOCL_DTL_LEVEL_TRACE_4);
 		return;
 	}
 
@@ -80,7 +86,8 @@ void bli_gemm_int
 
         if ( bli_thread_am_ochief( thread ) )
 		    bli_scalm( beta, c );
-        bli_thread_obarrier( thread );
+        bli_thread_barrier( thread );
+		AOCL_DTL_TRACE_EXIT(AOCL_DTL_LEVEL_TRACE_4);
 		return;
 	}
 
@@ -131,5 +138,7 @@ void bli_gemm_int
 	  cntl,
       thread
 	);
+
+	AOCL_DTL_TRACE_EXIT(AOCL_DTL_LEVEL_TRACE_4);
 }
 

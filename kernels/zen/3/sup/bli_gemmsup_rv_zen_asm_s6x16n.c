@@ -185,6 +185,10 @@ void bli_sgemmsup_rv_zen_asm_6x16n
 	uint64_t rs_c   = rs_c0;
 	uint64_t cs_c   = cs_c0;
 
+	// Query the panel stride of B and convert it to units of bytes.
+	uint64_t ps_b   = bli_auxinfo_ps_b( data );
+	uint64_t ps_b4  = ps_b * sizeof( float );
+
 	if ( n_iter == 0 ) goto consider_edge_cases;
 
 	// -------------------------------------------------------------------------
@@ -815,7 +819,9 @@ void bli_sgemmsup_rv_zen_asm_6x16n
 	lea(mem(r12, rsi, 8), r12)         // c_jj = r12 += 8*cs_c
 	lea(mem(r12, rsi, 8), r12)         // c_jj = r12 += 8*cs_c
 
-	add(imm(4*16), r14)                 // b_jj = r14 += 8*cs_b
+	//add(imm(4*16), r14)                 // b_jj = r14 += 8*cs_b
+	mov(var(ps_b4), rbx)               // load ps_b4
+	lea(mem(r14, rbx, 1), r14)         // a_ii = r14 += ps_b4
 
 	dec(r11)                           // jj -= 1;
 	jne(.SLOOP6X16J)                    // iterate again if jj != 0.
@@ -834,6 +840,7 @@ void bli_sgemmsup_rv_zen_asm_6x16n
       [b]      "m" (b),
       [rs_b]   "m" (rs_b),
       [cs_b]   "m" (cs_b),
+	  [ps_b4]  "m" (ps_b4),
       [alpha]  "m" (alpha),
       [beta]   "m" (beta),
       [c]      "m" (c),
@@ -861,7 +868,7 @@ void bli_sgemmsup_rv_zen_asm_6x16n
 
 		float* restrict cij = c + j_edge*cs_c;
 		float* restrict ai  = a;
-		float* restrict bj  = b + j_edge*cs_b;
+		float* restrict bj  = b + n_iter * ps_b;
 		
 		if ( 8 <= n_left )
 		{
@@ -955,6 +962,10 @@ void bli_sgemmsup_rv_zen_asm_5x16n
 	uint64_t cs_b   = cs_b0;
 	uint64_t rs_c   = rs_c0;
 	uint64_t cs_c   = cs_c0;
+
+	// Query the panel stride of B and convert it to units of bytes.
+	uint64_t ps_b   = bli_auxinfo_ps_b( data );
+	uint64_t ps_b4  = ps_b * sizeof( float );
 
 	if ( n_iter == 0 ) goto consider_edge_cases;
 
@@ -1574,7 +1585,9 @@ void bli_sgemmsup_rv_zen_asm_5x16n
 	lea(mem(r12, rsi, 8), r12)         // c_jj = r12 += 8*cs_c
     lea(mem(r12, rsi, 8), r12)         // c_jj = r12 += 8*cs_c
 
-	add(imm(4*16), r14)                 // b_jj = r14 += 8*cs_b
+	//add(imm(4*16), r14)                 // b_jj = r14 += 8*cs_b
+	mov(var(ps_b4), rbx)               // load ps_b4
+	lea(mem(r14, rbx, 1), r14)         // a_ii = r14 += ps_b4
 
 	dec(r11)                           // jj -= 1;
 	jne(.SLOOP6X16J)                    // iterate again if jj != 0.
@@ -1593,6 +1606,7 @@ void bli_sgemmsup_rv_zen_asm_5x16n
       [b]      "m" (b),
       [rs_b]   "m" (rs_b),
       [cs_b]   "m" (cs_b),
+	  [ps_b4]  "m" (ps_b4),	  
       [alpha]  "m" (alpha),
       [beta]   "m" (beta),
       [c]      "m" (c),
@@ -1620,7 +1634,7 @@ void bli_sgemmsup_rv_zen_asm_5x16n
 
 		float* restrict cij = c + j_edge*cs_c;
 		float* restrict ai  = a;
-		float* restrict bj  = b + j_edge*cs_b;
+		float* restrict bj  = b + n_iter * ps_b;
 
 		if ( 8 <= n_left )
 		{
@@ -1716,6 +1730,10 @@ void bli_sgemmsup_rv_zen_asm_4x16n
 	uint64_t cs_b   = cs_b0;
 	uint64_t rs_c   = rs_c0;
 	uint64_t cs_c   = cs_c0;
+
+	// Query the panel stride of B and convert it to units of bytes.
+	uint64_t ps_b   = bli_auxinfo_ps_b( data );
+	uint64_t ps_b4  = ps_b * sizeof( float );
 
 	if ( n_iter == 0 ) goto consider_edge_cases;
 
@@ -2176,7 +2194,9 @@ void bli_sgemmsup_rv_zen_asm_4x16n
 
 	lea(mem(r12, rsi, 8), r12)         // c_jj = r12 += 8*cs_c
 	lea(mem(r12, rsi, 8), r12)         // c_jj = r12 += 8*cs_c
-	add(imm(4*16), r14)                 // b_jj = r14 += 8*cs_b
+	//add(imm(4*16), r14)                 // b_jj = r14 += 8*cs_b
+	mov(var(ps_b4), rbx)               // load ps_b4
+	lea(mem(r14, rbx, 1), r14)         // a_ii = r14 += ps_b4
 
 	dec(r11)                           // jj -= 1;
 	jne(.SLOOP4X16J)                    // iterate again if jj != 0.
@@ -2195,6 +2215,7 @@ void bli_sgemmsup_rv_zen_asm_4x16n
       [b]      "m" (b),
       [rs_b]   "m" (rs_b),
       [cs_b]   "m" (cs_b),
+	  [ps_b4]  "m" (ps_b4),	  
       [alpha]  "m" (alpha),
       [beta]   "m" (beta),
       [c]      "m" (c),
@@ -2223,7 +2244,7 @@ void bli_sgemmsup_rv_zen_asm_4x16n
 
 		float* restrict cij = c + j_edge*cs_c;
 		float* restrict ai  = a;
-		float* restrict bj  = b + j_edge*cs_b;
+		float* restrict bj  = b + n_iter * ps_b;
 		
 		if ( 8 <= n_left )
 		{
@@ -2309,6 +2330,10 @@ void bli_sgemmsup_rv_zen_asm_3x16n
 	uint64_t cs_b   = cs_b0;
 	uint64_t rs_c   = rs_c0;
 	uint64_t cs_c   = cs_c0;
+
+	// Query the panel stride of B and convert it to units of bytes.
+	uint64_t ps_b   = bli_auxinfo_ps_b( data );
+	uint64_t ps_b4  = ps_b * sizeof( float );
 
 	if ( n_iter == 0 ) goto consider_edge_cases;
 
@@ -2815,7 +2840,9 @@ void bli_sgemmsup_rv_zen_asm_3x16n
 
 	lea(mem(r12, rsi, 8), r12)         // c_jj = r12 += 8*cs_c
 	lea(mem(r12, rsi, 8), r12)
-	add(imm(4*16), r14)                 // b_jj = r14 += 8*cs_b
+	//add(imm(4*16), r14)                 // b_jj = r14 += 8*cs_b
+	mov(var(ps_b4), rbx)               // load ps_b4
+	lea(mem(r14, rbx, 1), r14)         // a_ii = r14 += ps_b4
 
 	dec(r11)                           // jj -= 1;
 	jne(.SLOOP4X16J)                    // iterate again if jj != 0.
@@ -2834,6 +2861,7 @@ void bli_sgemmsup_rv_zen_asm_3x16n
       [b]      "m" (b),
       [rs_b]   "m" (rs_b),
       [cs_b]   "m" (cs_b),
+	  [ps_b4]  "m" (ps_b4),	  
       [alpha]  "m" (alpha),
       [beta]   "m" (beta),
       [c]      "m" (c),
@@ -2861,7 +2889,7 @@ void bli_sgemmsup_rv_zen_asm_3x16n
 
 		float* restrict cij = c + j_edge*cs_c;
 		float* restrict ai  = a;
-		float* restrict bj  = b + j_edge*cs_b;
+		float* restrict bj  = b + n_iter * ps_b;
 
 		if ( 8 <= n_left )
 		{
@@ -2947,6 +2975,10 @@ void bli_sgemmsup_rv_zen_asm_2x16n
 	uint64_t cs_b   = cs_b0;
 	uint64_t rs_c   = rs_c0;
 	uint64_t cs_c   = cs_c0;
+
+	// Query the panel stride of B and convert it to units of bytes.
+	uint64_t ps_b   = bli_auxinfo_ps_b( data );
+	uint64_t ps_b4  = ps_b * sizeof( float );
 
 	if ( n_iter == 0 ) goto consider_edge_cases;
 
@@ -3298,7 +3330,9 @@ void bli_sgemmsup_rv_zen_asm_2x16n
 
 	lea(mem(r12, rsi, 8), r12)         // c_jj = r12 += 8*cs_c
 	lea(mem(r12, rsi, 8), r12)
-	add(imm(4*16), r14)                 // b_jj = r14 += 8*cs_b
+	//add(imm(4*16), r14)                 // b_jj = r14 += 8*cs_b
+	mov(var(ps_b4), rbx)               // load ps_b4
+	lea(mem(r14, rbx, 1), r14)         // a_ii = r14 += ps_b4
 
 	dec(r11)                           // jj -= 1;
 	jne(.SLOOP2X16J)                    // iterate again if jj != 0.
@@ -3317,6 +3351,7 @@ void bli_sgemmsup_rv_zen_asm_2x16n
       [b]      "m" (b),
       [rs_b]   "m" (rs_b),
       [cs_b]   "m" (cs_b),
+	  [ps_b4]  "m" (ps_b4),	  
       [alpha]  "m" (alpha),
       [beta]   "m" (beta),
       [c]      "m" (c),
@@ -3344,7 +3379,7 @@ void bli_sgemmsup_rv_zen_asm_2x16n
 
 		float* restrict cij = c + j_edge*cs_c;
 		float* restrict ai  = a;
-		float* restrict bj  = b + j_edge*cs_b;
+		float* restrict bj  = b + n_iter * ps_b;
 
 		if ( 8 <= n_left )
 		{
@@ -3429,6 +3464,10 @@ void bli_sgemmsup_rv_zen_asm_1x16n
 	uint64_t cs_b   = cs_b0;
 	uint64_t rs_c   = rs_c0;
 	uint64_t cs_c   = cs_c0;
+
+	// Query the panel stride of B and convert it to units of bytes.
+	uint64_t ps_b   = bli_auxinfo_ps_b( data );
+	uint64_t ps_b4  = ps_b * sizeof( float );
 
 	if ( n_iter == 0 ) goto consider_edge_cases;
 
@@ -3617,42 +3656,77 @@ void bli_sgemmsup_rv_zen_asm_1x16n
 
 	label(.SCOLSTORED)
 
-	vunpcklps(ymm5, ymm4, ymm0)    //a0b0a1b1 a2b2a3b3
-	vmovsd(mem(rcx),xmm11)
-	vmovsd(mem(rcx, rsi, 1),xmm12)	
-	vmovsd(mem(rcx, rsi, 2),xmm13)
-	vmovsd(mem(rcx, rax, 1),xmm14)
-	vshufpd(imm(0x01), ymm0, ymm0, ymm1)//a1b1
-	vshufpd(imm(0x02), ymm0, ymm0, ymm2)//a2b2
-	vshufpd(imm(0x03), ymm0, ymm0, ymm10)//a3b3
-	vfmadd231ps(xmm11, xmm3, xmm0)
-	vfmadd231ps(xmm12, xmm3, xmm1)
-	vfmadd231ps(xmm13, xmm3, xmm2)
-	vfmadd231ps(xmm14, xmm3, xmm10)
-	vmovsd(xmm0, mem(rcx)) // store ( gamma00..gamma10 )
-	vmovsd(xmm1, mem(rcx, rsi, 1)) // store ( gamma01..gamma11 )	
-	vmovsd(xmm2, mem(rcx, rsi, 2)) // store ( gamma02..gamma12 )
-	vmovsd(xmm10, mem(rcx, rax, 1)) // store ( gamma03..gamma13 )
+	vextractf128(imm(0x0), ymm4, xmm0)//c0-c3
+	vmovss(mem(rcx),xmm7)
+	vmovss(mem(rcx, rsi, 1),xmm6)
+	vmovss(mem(rcx, rsi, 2),xmm11)
+	vmovss(mem(rcx, rax, 1),xmm10)
+	vshufps(imm(0x01), xmm0, xmm0,xmm1)
+	vshufps(imm(0x02), xmm0, xmm0,xmm2)
+	vshufps(imm(0x03), xmm0, xmm0,xmm14)
+	vfmadd231ps(xmm7, xmm3, xmm0)//e0
+	vfmadd231ps(xmm6, xmm3, xmm1)//e1
+	vfmadd231ps(xmm11, xmm3, xmm2)//e2
+	vfmadd231ps(xmm10, xmm3, xmm14)//e3
+	vmovss(xmm0, mem(rcx))
+	vmovss(xmm1, mem(rcx, rsi, 1))
+	vmovss(xmm2, mem(rcx, rsi, 2))
+	vmovss(xmm14, mem(rcx, rax, 1))
 	lea(mem(rcx, rsi, 4), rcx) // rcx += cs_c
+	vextractf128(imm(0x1), ymm4, xmm0)//e4-e7
+	vmovss(mem(rcx),xmm4)
+	vmovss(mem(rcx, rsi, 1),xmm6)
+	vmovss(mem(rcx, rsi, 2),xmm8)
+	vmovss(mem(rcx, rax, 1),xmm10)
+	vshufps(imm(0x01), xmm0, xmm0,xmm1)
+	vshufps(imm(0x02), xmm0, xmm0,xmm2)
+	vshufps(imm(0x03), xmm0, xmm0,xmm14)
+	vfmadd231ps(xmm4, xmm3, xmm0)//e4
+	vfmadd231ps(xmm6, xmm3, xmm1)//e5
+	vfmadd231ps(xmm8, xmm3, xmm2)//e6
+	vfmadd231ps(xmm10, xmm3, xmm14)//e7
+	vmovss(xmm0, mem(rcx))
+	vmovss(xmm1, mem(rcx, rsi, 1))
+	vmovss(xmm2, mem(rcx, rsi, 2))
+	vmovss(xmm14, mem(rcx, rax, 1))
 	
-	vunpckhps(ymm5, ymm4, ymm0)    //a0b0a1b1 a2b2a3b3
-	vmovsd(mem(rcx),xmm11)
-	vmovsd(mem(rcx, rsi, 1),xmm12)	
-	vmovsd(mem(rcx, rsi, 2),xmm13)
-	vmovsd(mem(rcx, rax, 1),xmm14)
-	vshufpd(imm(0x01), ymm0, ymm0, ymm1)//a1b1
-	vshufpd(imm(0x02), ymm0, ymm0, ymm2)//a2b2
-	vshufpd(imm(0x03), ymm0, ymm0, ymm10)//a3b3
-	vfmadd231ps(xmm11, xmm3, xmm0)
-	vfmadd231ps(xmm12, xmm3, xmm1)
-	vfmadd231ps(xmm13, xmm3, xmm2)
-	vfmadd231ps(xmm14, xmm3, xmm10)
-	vmovsd(xmm0, mem(rcx)) // store ( gamma00..gamma10 )
-	vmovsd(xmm1, mem(rcx, rsi, 1)) // store ( gamma01..gamma11 )	
-	vmovsd(xmm2, mem(rcx, rsi, 2)) // store ( gamma02..gamma12 )
-	vmovsd(xmm10, mem(rcx, rax, 1)) // store ( gamma03..gamma13 )	
+	lea(mem(rcx, rsi, 4), rcx) // rcx += 4*cs_c
+	
+	vextractf128(imm(0x0), ymm5, xmm0)//c0-c3
+	vmovss(mem(rcx),xmm4)
+	vmovss(mem(rcx, rsi, 1),xmm6)
+	vmovss(mem(rcx, rsi, 2),xmm11)
+	vmovss(mem(rcx, rax, 1),xmm10)
+	vshufps(imm(0x01), xmm0, xmm0,xmm1)
+	vshufps(imm(0x02), xmm0, xmm0,xmm2)
+	vshufps(imm(0x03), xmm0, xmm0,xmm14)
+	vfmadd231ps(xmm4, xmm3, xmm0)//e0
+	vfmadd231ps(xmm6, xmm3, xmm1)//e1
+	vfmadd231ps(xmm11, xmm3, xmm2)//e2
+	vfmadd231ps(xmm10, xmm3, xmm14)//e3
+	vmovss(xmm0, mem(rcx))
+	vmovss(xmm1, mem(rcx, rsi, 1))
+	vmovss(xmm2, mem(rcx, rsi, 2))
+	vmovss(xmm14, mem(rcx, rax, 1))
 	lea(mem(rcx, rsi, 4), rcx) // rcx += 4*cs_c
 
+	vextractf128(imm(0x1), ymm5, xmm0)//e4-e7
+	vmovss(mem(rcx),xmm4)
+	vmovss(mem(rcx, rsi, 1),xmm6)
+	vmovss(mem(rcx, rsi, 2),xmm8)
+	vmovss(mem(rcx, rax, 1),xmm10)
+	vshufps(imm(0x01), xmm0, xmm0,xmm1)
+	vshufps(imm(0x02), xmm0, xmm0,xmm2)
+	vshufps(imm(0x03), xmm0, xmm0,xmm14)
+	vfmadd231ps(xmm4, xmm3, xmm0)//e4
+	vfmadd231ps(xmm6, xmm3, xmm1)//e5
+	vfmadd231ps(xmm8, xmm3, xmm2)//e6
+	vfmadd231ps(xmm10, xmm3, xmm14)//e7
+	vmovss(xmm0, mem(rcx))
+	vmovss(xmm1, mem(rcx, rsi, 1))
+	vmovss(xmm2, mem(rcx, rsi, 2))
+	vmovss(xmm14, mem(rcx, rax, 1))
+	
 	jmp(.SDONE)                        // jump to end.
 	
 	label(.SBETAZERO)
@@ -3669,31 +3743,49 @@ void bli_sgemmsup_rv_zen_asm_1x16n
 
 	label(.SCOLSTORBZ)
 
-	vunpcklps(ymm5, ymm4, ymm0)    //a0b0a1b1 a2b2a3b3
-	vshufpd(imm(0x01), ymm0, ymm0, ymm1)//a1b1
-	vshufpd(imm(0x02), ymm0, ymm0, ymm2)//a2b2
-	vshufpd(imm(0x03), ymm0, ymm0, ymm10)//a3b3
-	vmovsd(xmm0, mem(rcx)) // store ( gamma00..gamma10 )
-	vmovsd(xmm1, mem(rcx, rsi, 1)) // store ( gamma01..gamma11 )	
-	vmovsd(xmm2, mem(rcx, rsi, 2)) // store ( gamma02..gamma12 )
-	vmovsd(xmm10, mem(rcx, rax, 1)) // store ( gamma03..gamma13 )
+	vextractf128(imm(0x0), ymm4, xmm0)//c0-c3
+	vshufps(imm(0x01), xmm0, xmm0,xmm1)
+	vshufps(imm(0x02), xmm0, xmm0,xmm2)
+	vshufps(imm(0x03), xmm0, xmm0,xmm14)
+	vmovss(xmm0, mem(rcx))
+	vmovss(xmm1, mem(rcx, rsi, 1))
+	vmovss(xmm2, mem(rcx, rsi, 2))
+	vmovss(xmm14, mem(rcx, rax, 1))
 	lea(mem(rcx, rsi, 4), rcx) // rcx += cs_c
 
-	vunpcklps(ymm5, ymm4, ymm0)    //a0b0a1b1 a2b2a3b3
-	vshufpd(imm(0x01), ymm0, ymm0, ymm1)//a1b1
-	vshufpd(imm(0x02), ymm0, ymm0, ymm2)//a2b2
-	vshufpd(imm(0x03), ymm0, ymm0, ymm10)//a3b3
-	vmovsd(xmm0, mem(rcx)) // store ( gamma00..gamma10 )
-	vmovsd(xmm1, mem(rcx, rsi, 1)) // store ( gamma01..gamma11 )	
-	vmovsd(xmm2, mem(rcx, rsi, 2)) // store ( gamma02..gamma12 )
-	vmovsd(xmm10, mem(rcx, rax, 1)) // store ( gamma03..gamma13 )
-	lea(mem(rcx, rsi, 4), rcx) // rcx += cs_c	
-	
+	vextractf128(imm(0x1), ymm4, xmm0)//e4-e7
+	vshufps(imm(0x01), xmm0, xmm0,xmm1)
+	vshufps(imm(0x02), xmm0, xmm0,xmm2)
+	vshufps(imm(0x03), xmm0, xmm0,xmm14)
+	vmovss(xmm0, mem(rcx))
+	vmovss(xmm1, mem(rcx, rsi, 1))
+	vmovss(xmm2, mem(rcx, rsi, 2))
+	vmovss(xmm14, mem(rcx, rax, 1))
+	vextractf128(imm(0x0), ymm5, xmm0)//c0-c3
+	vshufps(imm(0x01), xmm0, xmm0,xmm1)
+	vshufps(imm(0x02), xmm0, xmm0,xmm2)
+	vshufps(imm(0x03), xmm0, xmm0,xmm14)
+	vmovss(xmm0, mem(rcx))
+	vmovss(xmm1, mem(rcx, rsi, 1))
+	vmovss(xmm2, mem(rcx, rsi, 2))
+	vmovss(xmm14, mem(rcx, rax, 1))
+	lea(mem(rcx, rsi, 4), rcx) // rcx += cs_c		
+	vextractf128(imm(0x1), ymm5, xmm0)//e4-e7
+	vshufps(imm(0x01), xmm0, xmm0,xmm1)
+	vshufps(imm(0x02), xmm0, xmm0,xmm2)
+	vshufps(imm(0x03), xmm0, xmm0,xmm14)
+	vmovss(xmm0, mem(rcx))
+	vmovss(xmm1, mem(rcx, rsi, 1))
+	vmovss(xmm2, mem(rcx, rsi, 2))
+	vmovss(xmm14, mem(rcx, rax, 1))	
+
 	label(.SDONE)
 
 	lea(mem(r12, rsi, 8), r12)         // c_jj = r12 += 8*cs_c
     lea(mem(r12, rsi, 8), r12)
-	add(imm(4*16), r14)                 // b_jj = r14 += 8*cs_b
+	//add(imm(4*16), r14)                 // b_jj = r14 += 8*cs_b
+	mov(var(ps_b4), rbx)               // load ps_b4
+	lea(mem(r14, rbx, 1), r14)         // a_ii = r14 += ps_b4
 
 	dec(r11)                           // jj -= 1;
 	jne(.SLOOP1X16J)                    // iterate again if jj != 0.
@@ -3711,6 +3803,7 @@ void bli_sgemmsup_rv_zen_asm_1x16n
       [b]      "m" (b),
       [rs_b]   "m" (rs_b),
       [cs_b]   "m" (cs_b),
+	  [ps_b4]  "m" (ps_b4),	  
       [alpha]  "m" (alpha),
       [beta]   "m" (beta),
       [c]      "m" (c),
@@ -3738,7 +3831,7 @@ void bli_sgemmsup_rv_zen_asm_1x16n
 
 		float* restrict cij = c + j_edge*cs_c;
 		float* restrict ai  = a;
-		float* restrict bj  = b + j_edge*cs_b;
+		float* restrict bj  = b + n_iter * ps_b;
 
 		if ( 8 <= n_left )
 		{

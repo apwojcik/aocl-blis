@@ -45,6 +45,7 @@ void bli_gemm_blk_var3
        thrinfo_t* thread
      )
 {
+	AOCL_DTL_TRACE_ENTRY(AOCL_DTL_LEVEL_TRACE_5);
 	obj_t a1, b1;
 	dim_t b_alg;
 
@@ -84,7 +85,7 @@ void bli_gemm_blk_var3
 		  bli_thrinfo_sub_node( thread )
 		);
 
-		bli_thread_obarrier( bli_thrinfo_sub_node( thread ) );
+		bli_thread_barrier( bli_thrinfo_sub_node( thread ) );
 
 		// This variant executes multiple rank-k updates. Therefore, if the
 		// internal beta scalar on matrix C is non-zero, we must use it
@@ -109,5 +110,7 @@ void bli_gemm_blk_var3
 		if ( bli_cntl_family( cntl ) != BLIS_TRMM )
 		if ( i == 0 ) bli_obj_scalar_reset( c );
 	}
+
+	AOCL_DTL_TRACE_EXIT(AOCL_DTL_LEVEL_TRACE_5);
 }
 

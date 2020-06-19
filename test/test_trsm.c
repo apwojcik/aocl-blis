@@ -5,6 +5,7 @@
    libraries.
 
    Copyright (C) 2014, The University of Texas at Austin
+   Copyright (C) 2020, Advanced Micro Devices, Inc.
 
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions are
@@ -32,10 +33,17 @@
 
 */
 
+#ifdef WIN32
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 #include "blis.h"
 
 //#define FILE_IN_OUT
+#ifdef FILE_IN_OUT
+//#define READ_ALL_PARAMS_FROM_FILE
+#endif
 //#define PRINT
 
 int main( int argc, char** argv )
@@ -60,15 +68,17 @@ int main( int argc, char** argv )
 	double gflops;
 
 #ifdef FILE_IN_OUT
-    FILE* fin = NULL;
-    FILE* fout = NULL;
+	FILE* fin = NULL;
+	FILE* fout = NULL;
 #else
 	dim_t p;
 	dim_t p_begin, p_end, p_inc;
 	int   m_input, n_input;
-#endif
-#ifndef FILE_IN_OUT
-	n_repeats = 50;
+
+	//bli_init();
+
+	//bli_error_checking_level_set( BLIS_NO_ERROR_CHECKING );
+
 #ifndef PRINT
 	p_begin = 200;
 	p_end   = 2000;
@@ -85,6 +95,9 @@ int main( int argc, char** argv )
 	n_input = 4;
 #endif
 #endif
+
+	n_repeats = 3;
+
 #if 1
 	//dt = BLIS_FLOAT;
 	dt = BLIS_DOUBLE;
@@ -93,68 +106,138 @@ int main( int argc, char** argv )
 	dt = BLIS_DCOMPLEX;
 #endif
 
-	//side = BLIS_LEFT;
-	side = BLIS_RIGHT;
+#ifdef FILE_IN_OUT
+	if(argc < 3)
+	{
+		printf("Usage: ./test_trsm_XX.x input.csv output.csv\n");
+		exit(1);
+	}
+	fin = fopen(argv[1], "r");
+	if(fin == NULL)
+	{
+		printf("Error opening the file %s\n", argv[1]);
+		exit(1);
+	}
 
-	//uploa = BLIS_LOWER;
-	uploa = BLIS_UPPER;
+	fout = fopen(argv[2], "w");
+	if(fout == NULL)
+	{
+		printf("Error opening the file %s\n", argv[2]);
+		exit(1);
+	}
+	inc_t cs_a;
+	inc_t cs_b;
+#ifdef READ_ALL_PARAMS_FROM_FILE
+	char side_c, uploa_c, transa_c, diaga_c;
+	
+	fprintf(fout, "side, uploa, transa, diaga, m\t n\t cs_a\t cs_b\t gflops\n");
 
-	transa = BLIS_NO_TRANSPOSE;
+	printf("~~~~~~~_BLAS\t side, uploa, transa, diaga, m\t n\t cs_a\t cs_b\t gflops\n");
 
-	diaga = BLIS_NONUNIT_DIAG;
+	while(fscanf(fin, "%c %c %c %c %ld %ld %ld %ld\n", &side_c, &uploa_c, &transa_c, &diaga_c, &m, &n, &cs_a, &cs_b) == 8)
+	{
+
+	if( 'l' == side_c|| 'L' == side_c)
+		side = BLIS_LEFT;
+	else if('r' == side_c || 'R' == side_c)
+		side = BLIS_RIGHT;
+	else
+	{
+		printf("Invalid entry for the argument 'side':%c\n",side_c);
+		continue;
+	}
+
+	if('l' == uploa_c || 'L' == uploa_c)
+		uploa = BLIS_LOWER;
+	else if('u' == uploa_c || 'U' == uploa_c)
+		uploa = BLIS_UPPER;
+	else
+	{
+		printf("Invalid entry for the argument 'uplo':%c\n",uploa_c);
+		continue;
+	}
+
+	if('t' == transa_c || 'T' == transa_c)
+		transa = BLIS_TRANSPOSE;
+	else if('n' == transa_c || 'N' == transa_c)
+		transa = BLIS_NO_TRANSPOSE;
+	else
+	{
+		printf("Invalid entry for the argument 'transa':%c\n",transa_c);
+		continue;
+	}
+	
+	if('u' == diaga_c || 'U' == diaga_c)
+		diaga = BLIS_UNIT_DIAG;
+	else if('n' == diaga_c || 'N' == diaga_c)
+		diaga = BLIS_NONUNIT_DIAG;
+	else
+	{
+		printf("Invalid entry for the argument 'diaga':%c\n", diaga_c);
+		continue;
+	}
+#else
+	
+	fprintf(fout, "m\t n\t cs_a\t cs_b\t gflops\n");
+
+	printf("~~~~~~~_BLAS\t m\t n\t cs_a\t cs_b\t gflops\n");
+
+	while(fscanf(fin, "%ld %ld %ld %ld\n", &m, &n, &cs_a, &cs_b) == 4)
+	{
+	
+	side = BLIS_LEFT;
+        //side = BLIS_RIGHT;
+
+        uploa = BLIS_LOWER;
+        //uploa = BLIS_UPPER;
+
+        transa = BLIS_NO_TRANSPOSE;
+
+        diaga = BLIS_NONUNIT_DIAG;
+
+
+#endif
 
 	bli_param_map_blis_to_netlib_side( side, &f77_side );
 	bli_param_map_blis_to_netlib_uplo( uploa, &f77_uploa );
 	bli_param_map_blis_to_netlib_trans( transa, &f77_transa );
 	bli_param_map_blis_to_netlib_diag( diaga, &f77_diaga );
 
-#ifdef FILE_IN_OUT
-    if(argc < 4)
-    {
-        printf("Usage: ./test_trsm_XX.x input.csv output.csv n_repeats\n");
-        exit(1);
-    }
+		if(bli_is_left(side) && ((m > cs_a) || (m > cs_b))) continue; //leading dimension should be greater than number of rows
 
-    fin = fopen(argv[1], "r");
-    if(fin == NULL)
-    {
-        printf("Error opening the input file %s\n", argv[1]);
-        exit(1);
-    }
-    fout = fopen(argv[2], "w");
-    if(fout == NULL)
-    {
-        printf("Error opening the output file %s\n", argv[2]);
-        exit(1);
-    }
-    n_repeats = atoi(argv[3]);
-    fprintf(fout, "m,n,cs_a,cs_b,gflops\n");
-    printf("m\t n\t cs_a\t cs_b\t gflops\n");
-
-    dim_t cs_a, cs_b;
-    while(fscanf(fin, "%ld %ld %ld %ld\n", &m, &n, &cs_a, &cs_b) == 4)
-    {
-
-		bli_obj_create( dt, 1, 1, 0, 0, &alpha );
+		if(bli_is_right(side) && ((n > cs_a) || (m > cs_b))) continue; //leading dimension should be greater than number of rows
 
 		if ( bli_is_left( side ) )
-			bli_obj_create( dt, m, m, 1, cs_a, &a );
+			bli_obj_create( dt, m, m, 1, m, &a );
 		else
-			bli_obj_create( dt, n, n, 1, cs_a, &a );
-		bli_obj_create( dt, m, n, 1, cs_b, &c );
-		bli_obj_create( dt, m, n, 1, cs_b, &c_save );
+			bli_obj_create( dt, n, n, 1, n, &a );
+		bli_obj_create( dt, m, n, 1, m, &c );
+		bli_obj_create( dt, m, n, 1, m, &c_save );
 
-        bli_setsc(2, 0.0, &alpha);
 #else
 
-	for ( p = p_begin; p <= p_end; p += p_inc )
+	for ( p = p_end; p >= p_begin; p -= p_inc )
 	{
 		if ( m_input < 0 ) m = p * ( dim_t )abs(m_input);
 		else               m =     ( dim_t )    m_input;
 		if ( n_input < 0 ) n = p * ( dim_t )abs(n_input);
 		else               n =     ( dim_t )    n_input;
 
-		bli_obj_create( dt, 1, 1, 0, 0, &alpha );
+ 
+        side = BLIS_LEFT;
+        //side = BLIS_RIGHT;
+
+        uploa = BLIS_LOWER;
+        //uploa = BLIS_UPPER;
+
+        transa = BLIS_NO_TRANSPOSE;
+
+        diaga = BLIS_NONUNIT_DIAG;
+
+       bli_param_map_blis_to_netlib_side( side, &f77_side );
+        bli_param_map_blis_to_netlib_uplo( uploa, &f77_uploa );
+        bli_param_map_blis_to_netlib_trans( transa, &f77_transa );
+        bli_param_map_blis_to_netlib_diag( diaga, &f77_diaga );
 
 		if ( bli_is_left( side ) )
 			bli_obj_create( dt, m, m, 0, 0, &a );
@@ -162,9 +245,6 @@ int main( int argc, char** argv )
 			bli_obj_create( dt, n, n, 0, 0, &a );
 		bli_obj_create( dt, m, n, 0, 0, &c );
 		bli_obj_create( dt, m, n, 0, 0, &c_save );
-
-		bli_setsc(  (2.0/1.0), 1.0, &alpha );
-
 #endif
 
 		bli_randm( &a );
@@ -182,6 +262,10 @@ int main( int argc, char** argv )
 
 		// Load the diagonal of A to make it more likely to be invertible.
 		bli_shiftd( &BLIS_TWO, &a );
+
+		bli_obj_create( dt, 1, 1, 0, 0, &alpha );
+		bli_setsc(  (2.0/1.0), 1.0, &alpha );
+
 
 		bli_copym( &c, &c_save );
 	
@@ -307,30 +391,39 @@ int main( int argc, char** argv )
 
 		if ( bli_is_complex( dt ) ) gflops *= 4.0;
 
-#ifdef FILE_IN_OUT
-    fprintf(fout, "%lu,%lu,%lu,%lu,%7.2f\n", (unsigned long)m,
-                                             (unsigned long)n,
-                                             (unsigned long)cs_a,
-                                             (unsigned long)cs_b,
-                                             gflops);
-    printf("%lu %lu %lu %lu %7.2f\n", (unsigned long)m,
-                                             (unsigned long)n,
-                                             (unsigned long)cs_a,
-                                             (unsigned long)cs_b,
-                                             gflops);
-    fflush(fout);
-#else
-
 #ifdef BLIS
 		printf( "data_trsm_blis" );
 #else
 		printf( "data_trsm_%s", BLAS );
 #endif
+
+#ifdef FILE_IN_OUT
+#ifdef READ_ALL_PARAMS_FROM_FILE
+
+	printf("%c\t %c\t %c\t %c\t %4lu\t %4lu\t %4lu\t %4lu\t %6.3f\n",side_c, uploa_c, transa_c, diaga_c,
+									(unsigned long )m, (unsigned long ) n,
+	  					  			(unsigned long )cs_a, (unsigned long )cs_b,
+									gflops);
+
+	fprintf(fout,"%c\t %c\t %c\t %c\t %4lu\t %4lu\t %4lu\t %4lu\t %6.3f\n", side_c, uploa_c, transa_c, diaga_c,
+										(unsigned long )m, (unsigned long ) n,
+										(unsigned long )cs_a, (unsigned long )cs_b,
+										gflops);
+#else
+	printf("%4lu\t %4lu\t %4lu\t %4lu\t %6.3f\n", (unsigned long )m, (unsigned long ) n,
+						  (unsigned long )cs_a, (unsigned long )cs_b,
+						  gflops);
+	fprintf(fout,"%4lu\t %4lu\t %4lu\t %4lu\t %6.3f\n", (unsigned long )m, (unsigned long ) n,
+							  (unsigned long )cs_a, (unsigned long )cs_b,
+							  gflops);
+#endif
+fflush(fout);
+
+#else
 		printf( "( %2lu, 1:3 ) = [ %4lu %4lu %7.2f ];\n",
-		        ( unsigned long )(p - p_begin + 1)/p_inc + 1,
+		        ( unsigned long )(p - p_begin)/p_inc + 1,
 		        ( unsigned long )m,
 		        ( unsigned long )n, gflops );
-        fflush(stdout);
 #endif
 		bli_obj_free( &alpha );
 
@@ -338,6 +431,7 @@ int main( int argc, char** argv )
 		bli_obj_free( &c );
 		bli_obj_free( &c_save );
 	}
+
 #ifdef FILE_IN_OUT
     fclose(fin);
     fclose(fout);
