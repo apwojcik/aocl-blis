@@ -71,7 +71,7 @@ void bli_trsm_ll_ker_var2
 {
 	num_t     dt_exec   = bli_obj_exec_dt( c );
 
-	doff_t    diagoffa  = bli_obj_diag_offset( a );
+
 
 	pack_t    schema_a  = bli_obj_pack_schema( a );
 	pack_t    schema_b  = bli_obj_pack_schema( b );
@@ -80,6 +80,7 @@ void bli_trsm_ll_ker_var2
 	dim_t     n         = bli_obj_width( c );
 	dim_t     k         = bli_obj_width( a );
 
+	dim_t diagoffa = bli_obj_diag_offset( a );
 	void*     buf_a     = bli_obj_buffer_at_off( a );
 	inc_t     cs_a      = bli_obj_col_stride( a );
 	dim_t     pd_a      = bli_obj_panel_dim( a );

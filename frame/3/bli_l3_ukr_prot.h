@@ -51,6 +51,23 @@ void PASTEMAC(ch,opname) \
      );
 
 
+#define GEMMT_UKR_PROT( ctype, ch, opname ) \
+\
+void PASTEMAC(ch,opname) \
+     ( \
+       dim_t               k, \
+       dim_t		   m_off, \
+       dim_t 		   n_off, \
+       ctype*     restrict alpha, \
+       ctype*     restrict a, \
+       ctype*     restrict b, \
+       ctype*     restrict beta, \
+       ctype*     restrict c, inc_t rs_c, inc_t cs_c, \
+       auxinfo_t* restrict data, \
+       cntx_t*    restrict cntx  \
+     );
+
+
 #define GEMMTRSM_UKR_PROT( ctype, ch, opname ) \
 \
 void PASTEMAC(ch,opname) \

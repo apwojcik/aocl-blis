@@ -96,6 +96,11 @@ AXPYF_KER_PROT( double,   d, axpyf_zen_int_8 )
 DOTXF_KER_PROT( float,    s, dotxf_zen_int_8 )
 DOTXF_KER_PROT( double,   d, dotxf_zen_int_8 )
 
+// -- level-3 GEMMT ------------------------------------------------------------
+// DGEMMT
+GEMMT_UKR_PROT( double,	  d, gemmt_l_zen_asm_6x8 )
+GEMMT_UKR_PROT( double,	  d, gemmt_u_zen_asm_6x8 )
+
 // -- level-3 sup --------------------------------------------------------------
 // semmsup_rv
 

@@ -138,6 +138,13 @@ GENTPROT( double,   d, tfuncname ) \
 GENTPROT( scomplex, c, tfuncname ) \
 GENTPROT( dcomplex, z, tfuncname )
 
+#define INSERT_GENTPROT_BASIC0_SCZ( tfuncname ) \
+\
+GENTPROT( float,    s, tfuncname ) \
+GENTPROT( scomplex, c, tfuncname ) \
+GENTPROT( dcomplex, z, tfuncname )
+
+
 // -- (one auxiliary argument) --
 
 #define INSERT_GENTPROT_BASIC( tfuncname, varname ) \

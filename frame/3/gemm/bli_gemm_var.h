@@ -92,8 +92,30 @@ void PASTEMAC(ch,varname) \
        thrinfo_t* thread  \
      );
 
-INSERT_GENTPROT_BASIC0( gemm_ker_var2 )
+INSERT_GENTPROT_BASIC0_SCZ( gemm_ker_var2 )
 
 // Headers for induced algorithms:
 INSERT_GENTPROT_BASIC0( gemm4mb_ker_var2 ) // 4m1b
-
+#if 0
+void bli_dgemm_ker_var2
+(
+	pack_t schema_a,
+       pack_t schema_b,
+	dim_t m_off,
+	dim_t n_off,
+	bool_t is_lower,
+	dim_t m,
+	dim_t n,
+	dim_t k,
+	void* alpha,
+	void* a, inc_t cs_a, inc_t is_a,
+		 dim_t pd_a, inc_t ps_a,
+	void* b, inc_t rs_b, inc_t is_a,
+		 dim_t pd_b, inc_t ps_b,
+	void* beta,
+	void* c, inc_t rs_c, inc_t cs_c,
+	cntx_t* cntx,
+	rntm_t* rntm,
+	thrinfo_t* thread
+);
+#endif
