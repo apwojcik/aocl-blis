@@ -180,6 +180,7 @@ blis: \
        test_scalv_blis.x \
        \
        test_gemm_blis.x \
+       test_gemmt_blis.x \
        test_hemm_blis.x \
        test_herk_blis.x \
        test_her2k_blis.x \
@@ -201,6 +202,7 @@ openblas: \
       test_scalv_openblas.x \
       \
       test_gemm_openblas.x \
+      test_gemmt_openblas.x \
       test_hemm_openblas.x \
       test_herk_openblas.x \
       test_her2k_openblas.x \
@@ -222,6 +224,7 @@ atlas: \
       test_scalv_atlas.x \
       \
       test_gemm_atlas.x \
+      test_gemmt_atlas.x \
       test_hemm_atlas.x \
       test_herk_atlas.x \
       test_her2k_atlas.x \
@@ -242,6 +245,7 @@ mkl:  test_dotv_mkl.x \
       test_scalv_mkl.x \
       \
       test_gemm_mkl.x \
+      test_gemmt_mkl.x \
       test_hemm_mkl.x \
       test_herk_mkl.x \
       test_her2k_mkl.x \
