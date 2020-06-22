@@ -464,7 +464,7 @@ void bli_dgemm_l_ker_var2
             m_off_cblock = m_off + i * MR;
             n_off_cblock = n_off + j * NR;
 
-            if(bli_gemmt_is_strictly_above_diag(m_off_cblock, n_off_cblock, m_cur, n_cur)) return;
+            if(!bli_gemmt_is_strictly_above_diag(m_off_cblock, n_off_cblock, m_cur, n_cur)){
 #if 0
             else if(!is_lower & ((n_off_cblock + n_cur) < (m_off_cblock)))
                 return;
@@ -524,7 +524,7 @@ void bli_dgemm_l_ker_var2
             }
             else
             {
-                if(bli_gemmt_is_strictly_below_diag(m_off, n_off, m_cur, n_cur))
+                if(bli_gemmt_is_strictly_below_diag(m_off, n_off, MR, NR))
                 {
                     /* Invoke the gemm micro-kernel. */
                     bli_dgemm_haswell_asm_6x8
@@ -567,6 +567,7 @@ void bli_dgemm_l_ker_var2
             }
         }
     }
+}
 
 /*
 PASTEMAC(ch,fprintm)( stdout, "gemm_ker_var2: b1", k, NR, b1, NR, 1, "%4.1f", "" );
@@ -742,7 +743,7 @@ void bli_dgemm_u_ker_var2
             m_off_cblock = m_off + i * MR;
             n_off_cblock = n_off + j * NR;
 
-            if(bli_gemmt_is_strictly_below_diag(m_off_cblock, n_off_cblock, m_cur, n_cur)) return;
+            if(!bli_gemmt_is_strictly_below_diag(m_off_cblock, n_off_cblock, m_cur, n_cur)){
 #if 0
             else if(!is_lower & ((n_off_cblock + n_cur) < (m_off_cblock)))
                 return;
@@ -845,7 +846,7 @@ void bli_dgemm_u_ker_var2
             }
         }
     }
-
+}
 /*
 PASTEMAC(ch,fprintm)( stdout, "gemm_ker_var2: b1", k, NR, b1, NR, 1, "%4.1f", "" );
 PASTEMAC(ch,fprintm)( stdout, "gemm_ker_var2: a1", MR, k, a1, 1, MR, "%4.1f", "" );

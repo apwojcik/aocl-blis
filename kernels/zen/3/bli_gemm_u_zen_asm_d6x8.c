@@ -85,6 +85,16 @@ void bli_dgemmt_u_zen_asm_6x8
     ymm6 = _mm256_setzero_pd();
     ymm7 = _mm256_setzero_pd();
 
+    ymm8 = _mm256_setzero_pd();
+    ymm9 = _mm256_setzero_pd();
+    ymm10 = _mm256_setzero_pd();
+    ymm11 = _mm256_setzero_pd();
+
+    ymm12 = _mm256_setzero_pd();
+    ymm13 = _mm256_setzero_pd();
+    ymm14 = _mm256_setzero_pd();
+    ymm15 = _mm256_setzero_pd();
+
     for( k = 0; k < k_iter; k++ )
     {
         //iteration 0
