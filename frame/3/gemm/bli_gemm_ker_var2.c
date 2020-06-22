@@ -461,8 +461,8 @@ void bli_dgemm_l_ker_var2
 
             m_cur = ( bli_is_not_edge_f( i, m_iter, m_left ) ? MR : m_left );
 
-            m_off_cblock = m_off + i * ir_inc;
-            n_off_cblock = n_off + j * jr_inc;
+            m_off_cblock = m_off + i * MR;
+            n_off_cblock = n_off + j * NR;
 
             if(bli_gemmt_is_strictly_above_diag(m_off_cblock, n_off_cblock, m_cur, n_cur)) return;
 #if 0
@@ -739,8 +739,8 @@ void bli_dgemm_u_ker_var2
 
             m_cur = ( bli_is_not_edge_f( i, m_iter, m_left ) ? MR : m_left );
 
-            m_off_cblock = m_off + i * ir_inc;
-            n_off_cblock = n_off + j * jr_inc;
+            m_off_cblock = m_off + i * MR;
+            n_off_cblock = n_off + j * NR;
 
             if(bli_gemmt_is_strictly_below_diag(m_off_cblock, n_off_cblock, m_cur, n_cur)) return;
 #if 0
