@@ -99,6 +99,29 @@ void bli_dgemm_u_ker_var2
        thrinfo_t* thread 
      );
 
+void update_lower_triang( dim_t m_off, dim_t n_off,
+                    dim_t m_cur, dim_t n_cur,
+                    double* ct, inc_t rs_ct, inc_t cs_ct,
+                    double* beta_cast,
+                    double* c11, inc_t rs_c, inc_t cs_c
+            )
+{
+    dim_t diag_start = m_off - n_off + 1;
+    dim_t diag_end = n_cur;
+
+    dim_t diag, m, n;
+
+    double beta_val = *beta_cast;
+
+    for(diag = diag_start, m = 0; diag < diag_end; diag++, m++)
+           for(n = 0; n < diag; n++)
+                   c11[m*rs_c+n] = c11[m*rs_c + n] * beta_val + ct[m*rs_ct + n];
+
+    for(; m < m_cur; m++)
+            for(n = 0; n < n_cur; n++)
+                   c11[m*rs_c+n] = c11[m*rs_c + n] * beta_val + ct[m*rs_ct + n];
+    return;
+}
 
 void bli_gemm_ker_var2
      (
@@ -483,7 +506,7 @@ void bli_dgemm_l_ker_var2
                object. */
             bli_auxinfo_set_next_a( a2, &aux );
             bli_auxinfo_set_next_b( b2, &aux );
-
+#ifdef SEPERATE_KERNELS
             /* Handle interior and edge cases separately. */
             if ( m_cur == MR && n_cur == NR )
             {
@@ -565,6 +588,65 @@ void bli_dgemm_l_ker_var2
                                         beta_cast,
                                         c11, rs_c,  cs_c );
             }
+
+#else
+            if(bli_gemmt_is_strictly_below_diag(m_off, n_off, m_cur, n_cur))
+            {    
+                /* Handle interior and edge cases separately. */
+                if ( m_cur == MR && n_cur == NR )
+                {
+                    /* Invoke the gemm micro-kernel. */
+                    bli_dgemm_haswell_asm_6x8
+                    (
+                      k,
+                      alpha_cast,
+                      a1,
+                      b1,
+                      beta_cast,
+                      c11, rs_c, cs_c,
+                      &aux,
+                      cntx 
+                    );
+                }
+                else
+                {
+                    /* Invoke the gemm micro-kernel. */
+                    bli_dgemm_haswell_asm_6x8
+                    (
+                      k,
+                      alpha_cast,
+                      a1,
+                      b1,
+                      zero,
+                      ct, rs_ct, cs_ct,
+                      &aux,
+                      cntx 
+                    );
+                }
+            }
+            else
+            {
+                /* Invoke the gemm micro-kernel. */
+                bli_dgemm_haswell_asm_6x8
+                (
+                  k,
+                  alpha_cast,
+                  a1,
+                  b1,
+                  zero,
+                  ct, rs_ct, cs_ct,
+                  &aux,
+                  cntx 
+                );
+
+                update_lower_triang(m_off_cblock, n_off_cblock,
+                                    m_cur, n_cur,
+                                    ct, rs_ct, cs_ct,
+                                    beta_cast,
+                                    c11, rs_c, cs_c );
+            }
+    
+#endif
         }
     }
 }
@@ -803,7 +885,7 @@ void bli_dgemm_u_ker_var2
             }
             else
             {
-                if(bli_gemmt_is_strictly_above_diag(m_off, n_off, m_cur, n_cur))
+            if(bli_gemmt_is_strictly_above_diag(m_off, n_off, m_cur, n_cur))
                 {
                     /* Invoke the gemm micro-kernel. */
                     bli_dgemm_haswell_asm_6x8
