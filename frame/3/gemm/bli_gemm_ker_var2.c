@@ -581,12 +581,12 @@ void bli_dgemm_l_ker_var2
             
                 }
 
-
                 /* Scale the bottom edge of C and add the result from above. */
                 PASTEMAC(d,xpbys_mxn)( m_cur, n_cur,
                                         ct,  rs_ct, cs_ct,
                                         beta_cast,
                                         c11, rs_c,  cs_c );
+
             }
 
 #else
@@ -622,7 +622,13 @@ void bli_dgemm_l_ker_var2
                       &aux,
                       cntx 
                     );
-                }
+	            /* Scale the bottom edge of C and add the result from above. */
+        	    PASTEMAC(d,xpbys_mxn)( m_cur, n_cur,
+                                        ct,  rs_ct, cs_ct,
+                                        beta_cast,
+                                        c11, rs_c,  cs_c );
+
+		}
             }
             else
             {
