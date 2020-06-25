@@ -133,7 +133,7 @@ int main( int argc, char** argv )
 
 	while (fscanf(fin, "%ld %ld %ld %ld %ld %ld\n", &k, &n, &cs_a, &cs_b, &cs_c) == 5)
 	  {
-	    if ((m > cs_a) || (k > cs_b) || (m > cs_c)) continue; // leading dimension should be greater than number of rows
+	    if ((n > cs_a) || (k > cs_b) || (n > cs_c)) continue; // leading dimension should be greater than number of rows
 	    
 	    bli_obj_create( dt, 1, 1, 0, 0, &alpha);
 	    bli_obj_create( dt, 1, 1, 0, 0, &beta );
