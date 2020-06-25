@@ -72,9 +72,9 @@ int main( int argc, char** argv )
 	n_repeats = 3;
 
 #ifndef PRINT
-	p_begin = 200;
-	p_end   = 20000;
-	p_inc   = 2000;
+	p_begin = 48;
+	p_end   = 10000;
+	p_inc   = 192;
 
 	n_input = -1;
 	k_input = -1;
@@ -98,7 +98,7 @@ int main( int argc, char** argv )
 	transa = BLIS_NO_TRANSPOSE;
 	transb = BLIS_NO_TRANSPOSE;
 
-	uploc  = BLIS_LOWER;
+	uploc  = BLIS_UPPER;
 
 	bli_param_map_blis_to_netlib_trans( transa, &f77_transa );
 	bli_param_map_blis_to_netlib_trans( transb, &f77_transb );
@@ -175,10 +175,10 @@ int main( int argc, char** argv )
 		bli_obj_create( dt, 1, 1, 0, 0, &alpha );
 		bli_obj_create( dt, 1, 1, 0, 0, &beta );
 
-		bli_obj_create( dt, n, k, 0, 0, &a );
-		bli_obj_create( dt, k, n, 0, 0, &b );
-		bli_obj_create( dt, n, n, 0, 0, &c );
-		bli_obj_create( dt, n, n, 0, 0, &c_save );
+		bli_obj_create( dt, n, k, k, 1, &a );
+		bli_obj_create( dt, k, n, n, 1, &b );
+		bli_obj_create( dt, n, n, n, 1, &c );
+		bli_obj_create( dt, n, n, n, 1, &c_save );
 #if 1
 		bli_randm( &a );
 		bli_randm( &b );
@@ -189,21 +189,21 @@ int main( int argc, char** argv )
 		double* bp = (double *)bli_obj_buffer_at_off(&b);
 		double* cp = (double *)bli_obj_buffer_at_off(&c);
 
-		dim_t cs_a = bli_obj_col_stride(&a);
-		dim_t cs_b = bli_obj_col_stride(&b);
-		dim_t cs_c = bli_obj_col_stride(&c);
+		dim_t rs_a = bli_obj_row_stride(&a);
+		dim_t rs_b = bli_obj_row_stride(&b);
+		dim_t rs_c = bli_obj_row_stride(&c);
 
 		FILE* fin = fopen("input.csv", "r");
 
 		for(x = 0; x < n; x++)
 			for(y = 0; y < k; y++)
-				fscanf(fin,"%lf,", &ap[y*cs_a+x]);
+				fscanf(fin,"%lf,", &ap[x*rs_a + y]);
 		for(x = 0; x < k; x++)
 			for(y = 0; y < n; y++)
-				fscanf(fin, "%lf,", &bp[y*cs_b+x]);
+				fscanf(fin, "%lf,", &bp[x*rs_b+y]);
 		for(x = 0; x < n; x++)
 			for(y= 0; y < n; y++)
-				fscanf(fin, "%lf,", &cp[y*cs_c+x]);
+				fscanf(fin, "%lf,", &cp[x*rs_c+y]);
 
 		fclose(fin);
 #endif
@@ -258,37 +258,13 @@ int main( int argc, char** argv )
 			f77_int  lda    = bli_obj_col_stride( &a );
 			f77_int  ldb    = bli_obj_col_stride( &b );
 			f77_int  ldc    = bli_obj_col_stride( &c );
-			float   alphap = *(float*)bli_obj_buffer( &alpha );
+			float*   alphap = bli_obj_buffer( &alpha );
 			float*   ap     = bli_obj_buffer( &a );
 			float*   bp     = bli_obj_buffer( &b );
-			float   betap  = *(float*)bli_obj_buffer( &beta );
+			float*   betap  = bli_obj_buffer( &beta );
 			float*   cp     = bli_obj_buffer( &c );
 			
-			cblas_sgemmt( f77_uploc,
-				f77_transa,
-			        f77_transb,
-			        nn,
-			        kk,
-			        alphap,
-			        ap, lda,
-			        bp, ldb,
-			        betap,
-			        cp, ldc );
-		}
-		else if ( bli_is_double( dt ) )
-		{
-			f77_int  kk     = bli_obj_width_after_trans( &a );
-			f77_int  nn     = bli_obj_width( &c );
-			f77_int  lda    = bli_obj_col_stride( &a );
-			f77_int  ldb    = bli_obj_col_stride( &b );
-			f77_int  ldc    = bli_obj_col_stride( &c );
-			double*  alphap = bli_obj_buffer( &alpha );
-			double*  ap     = bli_obj_buffer( &a );
-			double*  bp     = bli_obj_buffer( &b );
-			double*  betap  = bli_obj_buffer( &beta );
-			double*  cp     = bli_obj_buffer( &c );
-			
-			dgemmt_( &f77_uploc,
+			sgemmt_( &f77_uploc,
 				&f77_transa,
 			        &f77_transb,
 			        &nn,
@@ -298,6 +274,45 @@ int main( int argc, char** argv )
 			        bp, &ldb,
 			        betap,
 			        cp, &ldc );
+		}
+		else if ( bli_is_double( dt ) )
+		{
+			f77_int  kk     = bli_obj_width_after_trans( &a );
+			f77_int  nn     = bli_obj_width( &c );
+			f77_int  lda    = bli_obj_row_stride( &a );
+			f77_int  ldb    = bli_obj_row_stride( &b );
+			f77_int  ldc    = bli_obj_row_stride( &c );
+			double*  alphap = bli_obj_buffer( &alpha );
+			double*  ap     = bli_obj_buffer( &a );
+			double*  bp     = bli_obj_buffer( &b );
+			double*  betap  = bli_obj_buffer( &beta );
+			double*  cp     = bli_obj_buffer( &c );
+#if 1		
+			cblas_dgemmt( 101, /* Row major */
+				      121, /* lower triangular */
+				      111, /* No transpose */
+				      111, /* No transpose */
+				      nn,
+				      kk,
+				      *alphap,
+				      ap,lda,
+				      bp, ldb,
+				      *betap,
+				      cp, ldc
+				    );
+#else
+			dgemmt_(
+				&f77_uploc,
+				&f77_transa,
+			        &f77_transb,
+			        &nn,
+			        &kk,
+			        alphap,
+			        ap, &lda,
+			        bp, &ldb,
+			        betap,
+			        cp, &ldc );
+#endif
 		}
 		else if ( bli_is_scomplex( dt ) )
 		{
