@@ -69,17 +69,12 @@ def remove_lines_in_file(filename):
         file_content = fd.read()
     file_content = file_content.replace(
         'if(${TARGET_ARCH} STREQUAL amdzen)\n'
-        'add_subdirectory(${CMAKE_BINARY_DIR}/ref_kernels/generic '
-        '${CMAKE_BINARY_DIR}/ref_kernels/generic)\n'
-        'add_subdirectory(${CMAKE_BINARY_DIR}/ref_kernels/zen '
-        '${CMAKE_BINARY_DIR}/ref_kernels/zen)\n'
-        'add_subdirectory(${CMAKE_BINARY_DIR}/ref_kernels/zen2 '
-        '${CMAKE_BINARY_DIR}/ref_kernels/zen2)\n'
-        'add_subdirectory(${CMAKE_BINARY_DIR}/ref_kernels/zen3 '
-        '${CMAKE_BINARY_DIR}/ref_kernels/zen3)\n'
-        'add_subdirectory(${CMAKE_BINARY_DIR}/ref_kernels/zen4 '
-        '${CMAKE_BINARY_DIR}/ref_kernels/zen4)\nelse()', '\n')
-    data = file_content.replace('endif()', '\n')
+        '    add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/generic ${CMAKE_CURRENT_BINARY_DIR}/generic)\n'
+        '    add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/zen ${CMAKE_CURRENT_BINARY_DIR}/zen)\n'
+        '    add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/zen2 ${CMAKE_CURRENT_BINARY_DIR}/zen2)\n'
+        '    add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/zen3 ${CMAKE_CURRENT_BINARY_DIR}/zen3)\n'
+        '    add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/zen4 ${CMAKE_CURRENT_BINARY_DIR}/zen4)\nelse()', '')
+    data = file_content.replace('endif()', '').strip(' ')
     with open(filename, 'w') as fd:
         fd.write(data + '\n')
 

@@ -1,11 +1,12 @@
 ##Copyright (C) 2020, Advanced Micro Devices, Inc. All rights reserved.##
 
+target_include_directories(${TARGET_NAME}
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+    )
 
-set(SUBDIRECTORIES "1" "1f" "2" "3" "util")
-
-#Add all subdirectories
-foreach(VAR ${SUBDIRECTORIES})
-    add_subdirectory(${VAR})
-endforeach()
-
-
+add_subdirectory(1)
+add_subdirectory(1f)
+add_subdirectory(2)
+add_subdirectory(3)
+add_subdirectory(util)

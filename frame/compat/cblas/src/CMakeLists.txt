@@ -1,169 +1,174 @@
 ##Copyright (C) 2020, Advanced Micro Devices, Inc. All rights reserved.##
 
-target_sources("${PROJECT_NAME}"
+target_sources(${TARGET_NAME}
     PRIVATE
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_caxpy.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ccopy.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_cdotc_sub.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_cdotu_sub.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_cgbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_cgemm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_cgemv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_cgerc.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_cgeru.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_chbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_chemm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_chemv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_cher.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_cher2.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_cher2k.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_cherk.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_chpmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_chpr.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_chpr2.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_cscal.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_csscal.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_cswap.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_csymm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_csyr2k.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_csyrk.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ctbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ctbsv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ctpmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ctpsv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ctrmm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ctrmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ctrsm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ctrsv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dasum.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_daxpy.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dcopy.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ddot.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dgbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dgemm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dgemv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dger.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dnrm2.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_drot.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_drotg.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_drotm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_drotmg.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dsbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dscal.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dsdot.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dspmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dspr.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dspr2.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dswap.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dsymm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dsymv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dsyr.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dsyr2.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dsyr2k.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dsyrk.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dtbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dtbsv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dtpmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dtpsv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dtrmm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dtrmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dtrsm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dtrsv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dzasum.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dznrm2.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_globals.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_icamax.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_idamax.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_isamax.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_izamax.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_icamin.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_idamin.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_isamin.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_izamin.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_sasum.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_saxpy.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_scasum.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_scnrm2.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_scopy.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_sdot.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_sdsdot.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_sgbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_sgemm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_sgemv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_sger.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_snrm2.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_srot.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_srotg.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_srotm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_srotmg.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ssbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_sscal.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_sspmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_sspr.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_sspr2.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_sswap.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ssymm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ssymv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ssyr.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ssyr2.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ssyr2k.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ssyrk.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_stbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_stbsv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_stpmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_stpsv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_strmm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_strmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_strsm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_strsv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_xerbla.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zaxpy.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zcopy.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zdotc_sub.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zdotu_sub.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zdscal.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zgbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zgemm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zgemv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zgerc.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zgeru.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zhbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zhemm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zhemv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zher.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zher2.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zher2k.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zherk.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zhpmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zhpr.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zhpr2.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zscal.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zswap.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zsymm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zsyr2k.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zsyrk.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ztbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ztbsv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ztpmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ztpsv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ztrmm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ztrmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ztrsm.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_ztrsv.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_cgemmt.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dgemmt.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_sgemmt.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zgemmt.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_sgemm_batch.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dgemm_batch.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_cgemm_batch.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zgemm_batch.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_saxpby.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_daxpby.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_caxpby.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zaxpby.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_cgemm3m.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_zgemm3m.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_dcabs1.c
-${CMAKE_CURRENT_SOURCE_DIR}/cblas_scabs1.c
-)
+        cblas_caxpy.c
+        cblas_ccopy.c
+        cblas_cdotc_sub.c
+        cblas_cdotu_sub.c
+        cblas_cgbmv.c
+        cblas_cgemm.c
+        cblas_cgemv.c
+        cblas_cgerc.c
+        cblas_cgeru.c
+        cblas_chbmv.c
+        cblas_chemm.c
+        cblas_chemv.c
+        cblas_cher.c
+        cblas_cher2.c
+        cblas_cher2k.c
+        cblas_cherk.c
+        cblas_chpmv.c
+        cblas_chpr.c
+        cblas_chpr2.c
+        cblas_cscal.c
+        cblas_csscal.c
+        cblas_cswap.c
+        cblas_csymm.c
+        cblas_csyr2k.c
+        cblas_csyrk.c
+        cblas_ctbmv.c
+        cblas_ctbsv.c
+        cblas_ctpmv.c
+        cblas_ctpsv.c
+        cblas_ctrmm.c
+        cblas_ctrmv.c
+        cblas_ctrsm.c
+        cblas_ctrsv.c
+        cblas_dasum.c
+        cblas_daxpy.c
+        cblas_dcopy.c
+        cblas_ddot.c
+        cblas_dgbmv.c
+        cblas_dgemm.c
+        cblas_dgemv.c
+        cblas_dger.c
+        cblas_dnrm2.c
+        cblas_drot.c
+        cblas_drotg.c
+        cblas_drotm.c
+        cblas_drotmg.c
+        cblas_dsbmv.c
+        cblas_dscal.c
+        cblas_dsdot.c
+        cblas_dspmv.c
+        cblas_dspr.c
+        cblas_dspr2.c
+        cblas_dswap.c
+        cblas_dsymm.c
+        cblas_dsymv.c
+        cblas_dsyr.c
+        cblas_dsyr2.c
+        cblas_dsyr2k.c
+        cblas_dsyrk.c
+        cblas_dtbmv.c
+        cblas_dtbsv.c
+        cblas_dtpmv.c
+        cblas_dtpsv.c
+        cblas_dtrmm.c
+        cblas_dtrmv.c
+        cblas_dtrsm.c
+        cblas_dtrsv.c
+        cblas_dzasum.c
+        cblas_dznrm2.c
+        cblas_globals.c
+        cblas_icamax.c
+        cblas_idamax.c
+        cblas_isamax.c
+        cblas_izamax.c
+        cblas_icamin.c
+        cblas_idamin.c
+        cblas_isamin.c
+        cblas_izamin.c
+        cblas_sasum.c
+        cblas_saxpy.c
+        cblas_scasum.c
+        cblas_scnrm2.c
+        cblas_scopy.c
+        cblas_sdot.c
+        cblas_sdsdot.c
+        cblas_sgbmv.c
+        cblas_sgemm.c
+        cblas_sgemv.c
+        cblas_sger.c
+        cblas_snrm2.c
+        cblas_srot.c
+        cblas_srotg.c
+        cblas_srotm.c
+        cblas_srotmg.c
+        cblas_ssbmv.c
+        cblas_sscal.c
+        cblas_sspmv.c
+        cblas_sspr.c
+        cblas_sspr2.c
+        cblas_sswap.c
+        cblas_ssymm.c
+        cblas_ssymv.c
+        cblas_ssyr.c
+        cblas_ssyr2.c
+        cblas_ssyr2k.c
+        cblas_ssyrk.c
+        cblas_stbmv.c
+        cblas_stbsv.c
+        cblas_stpmv.c
+        cblas_stpsv.c
+        cblas_strmm.c
+        cblas_strmv.c
+        cblas_strsm.c
+        cblas_strsv.c
+        cblas_xerbla.c
+        cblas_zaxpy.c
+        cblas_zcopy.c
+        cblas_zdotc_sub.c
+        cblas_zdotu_sub.c
+        cblas_zdscal.c
+        cblas_zgbmv.c
+        cblas_zgemm.c
+        cblas_zgemv.c
+        cblas_zgerc.c
+        cblas_zgeru.c
+        cblas_zhbmv.c
+        cblas_zhemm.c
+        cblas_zhemv.c
+        cblas_zher.c
+        cblas_zher2.c
+        cblas_zher2k.c
+        cblas_zherk.c
+        cblas_zhpmv.c
+        cblas_zhpr.c
+        cblas_zhpr2.c
+        cblas_zscal.c
+        cblas_zswap.c
+        cblas_zsymm.c
+        cblas_zsyr2k.c
+        cblas_zsyrk.c
+        cblas_ztbmv.c
+        cblas_ztbsv.c
+        cblas_ztpmv.c
+        cblas_ztpsv.c
+        cblas_ztrmm.c
+        cblas_ztrmv.c
+        cblas_ztrsm.c
+        cblas_ztrsv.c
+        cblas_cgemmt.c
+        cblas_dgemmt.c
+        cblas_sgemmt.c
+        cblas_zgemmt.c
+        cblas_sgemm_batch.c
+        cblas_dgemm_batch.c
+        cblas_cgemm_batch.c
+        cblas_zgemm_batch.c
+        cblas_saxpby.c
+        cblas_daxpby.c
+        cblas_caxpby.c
+        cblas_zaxpby.c
+        cblas_cgemm3m.c
+        cblas_zgemm3m.c
+        cblas_dcabs1.c
+        cblas_scabs1.c
+    )
+
+target_include_directories(${TARGET_NAME}
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+    )

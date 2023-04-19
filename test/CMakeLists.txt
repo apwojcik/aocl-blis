@@ -3,7 +3,7 @@
 add_definitions(-DBLAS="AOCL")
 
 add_executable(TestAminv test_aminv.c)
-target_link_libraries(TestAminv debug "${LIB_NAME}.lib")
+target_link_libraries(TestAminv PRIVATE "${LIB_NAME}.lib")
 if(ENABLE_OPENMP AND BUILD_SHARED_LIBS)
     target_link_libraries(TestAminv "${OMP_LIB}")
 endif()

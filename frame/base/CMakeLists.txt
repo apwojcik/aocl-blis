@@ -1,48 +1,88 @@
 ##Copyright (C) 2021, Advanced Micro Devices, Inc. All rights reserved.##
 
-target_sources("${PROJECT_NAME}"
-    PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_apool.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_arch.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_array.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_blksz.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_check.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_clock.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_cntl.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_cntx.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_const.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_cpuid.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_env.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_error.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_func.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_getopt.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_gks.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_info.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_init.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_machval.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_malloc.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_mbool.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_membrk.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_memsys.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_obj.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_obj_scalar.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_pack.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_param_map.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_part.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_pool.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_prune.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_query.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_rntm.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_sba.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_setgetij.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_setri.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_string.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_winsys.c
+target_sources(${TARGET_NAME}
+    PRIVATE
+        bli_apool.c
+        bli_apool.h
+        bli_arch.c
+        bli_arch.h
+        bli_array.c
+        bli_array.h
+        bli_blksz.c
+        bli_blksz.h
+        bli_check.c
+        bli_check.h
+        bli_clock.c
+        bli_clock.h
+        bli_cntl.c
+        bli_cntl.h
+        bli_cntx.c
+        bli_cntx.h
+        bli_const.c
+        bli_const.h
+        bli_cpuid.c
+        bli_cpuid.h
+        bli_env.c
+        bli_env.h
+        bli_error.c
+        bli_error.h
+        bli_func.c
+        bli_func.h
+        bli_getopt.c
+        bli_getopt.h
+        bli_gks.c
+        bli_gks.h
+        bli_info.c
+        bli_info.h
+        bli_init.c
+        bli_init.h
+        bli_machval.c
+        bli_machval.h
+        bli_malloc.c
+        bli_malloc.h
+        bli_mbool.c
+        bli_mbool.h
+        bli_membrk.c
+        bli_membrk.h
+        bli_memsys.c
+        bli_memsys.h
+        bli_obj.c
+        bli_obj.h
+        bli_obj_scalar.c
+        bli_obj_scalar.h
+        bli_pack.c
+        bli_pack.h
+        bli_param_map.c
+        bli_param_map.h
+        bli_part.c
+        bli_part.h
+        bli_pool.c
+        bli_pool.h
+        bli_prune.c
+        bli_prune.h
+        bli_query.c
+        bli_query.h
+        bli_rntm.c
+        bli_rntm.h
+        bli_sba.c
+        bli_sba.h
+        bli_setgetij.c
+        bli_setgetij.h
+        bli_setri.c
+        bli_setri.h
+        bli_string.c
+        bli_string.h
+        bli_winsys.c
+        bli_winsys.h
     )
 
+target_include_directories(${TARGET_NAME}
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR})
+
 #Add all subdirectories
-    add_subdirectory(cast)
-    add_subdirectory(check)
-    add_subdirectory(noopt)
-    add_subdirectory(proj)
+add_subdirectory(cast)
+add_subdirectory(check)
+add_subdirectory(noopt)
+add_subdirectory(proj)
 

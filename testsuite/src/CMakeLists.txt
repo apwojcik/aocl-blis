@@ -2,26 +2,26 @@
 
 target_sources(test_libblis
      PRIVATE
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_addm.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_addv.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_amaxv.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_axpbyv.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_axpy2v.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_axpyf.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_axpym.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_axpyv.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_copym.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_copyv.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_dotaxpyv.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_dotv.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_dotxaxpyf.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_dotxf.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_dotxv.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_gemm.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_gemmt.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_gemm_ukr.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_gemmtrsm_ukr.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_gemv.c
+     test_addm.c
+     test_addv.c
+     test_amaxv.c
+     test_axpbyv.c
+     test_axpy2v.c
+     test_axpyf.c
+     test_axpym.c
+     test_axpyv.c
+     test_copym.c
+     test_copyv.c
+     test_dotaxpyv.c
+     test_dotv.c
+     test_dotxaxpyf.c
+     test_dotxf.c
+     test_dotxv.c
+     test_gemm.c
+     test_gemmt.c
+     test_gemm_ukr.c
+     test_gemmtrsm_ukr.c
+     test_gemv.c
      ${CMAKE_CURRENT_SOURCE_DIR}/test_ger.c
      ${CMAKE_CURRENT_SOURCE_DIR}/test_hemm.c
      ${CMAKE_CURRENT_SOURCE_DIR}/test_hemv.c

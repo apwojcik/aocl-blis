@@ -128,7 +128,7 @@ typedef uint32_t objbits_t;  // object information bit field
 #define BLIS_NUM_FP_TYPES   4
 #define BLIS_MAX_TYPE_SIZE  sizeof(dcomplex)
 
-// There are some places where we need to use sizeof() inside of a C
+// There are some places where we need to use sizeof() inside a C
 // preprocessor #if conditional, and so here we define the various sizes
 // for those purposes.
 #define BLIS_SIZEOF_S      4  // sizeof(float)
@@ -140,12 +140,12 @@ typedef uint32_t objbits_t;  // object information bit field
 
 #ifdef BLIS_ENABLE_C99_COMPLEX
 
-	#if __STDC_VERSION__ >= 199901L
+    #if __STDC_VERSION__ >= 199901L
 		#include <complex.h>
 
-		// Typedef official complex types to BLIS complex type names.
-		typedef  float complex scomplex;
-		typedef double complex dcomplex;
+		// Map C99 standard complex types to BLIS complex type names.
+        typedef float _Complex scomplex;
+        typedef double _Complex dcomplex;
 	#else
 		#error "Configuration requested C99 complex types, but C99 does not appear to be supported."
 	#endif

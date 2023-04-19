@@ -1,10 +1,22 @@
 ##Copyright (C) 2020, Advanced Micro Devices, Inc. All rights reserved. ##
 
-target_sources("${PROJECT_NAME}"
+target_sources(${TARGET_NAME}
      PRIVATE
-     ${CMAKE_CURRENT_SOURCE_DIR}/aocldtl.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/aocldtl_blis.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/aoclfal.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/aoclflist.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/aoclos.c
+        aocldtl.c
+        aocldtl.h
+        aocldtl_blis.c
+        aocldtl_blis.h
+        aocldtlcf.h
+        aoclfal.c
+        aoclfal.h
+        aoclflist.c
+        aoclflist.h
+        aoclos.c
+        aoclos.h
+        aocltpdef.h
+     )
+
+target_include_directories(${TARGET_NAME}
+     PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
      )

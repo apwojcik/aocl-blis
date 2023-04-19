@@ -71,7 +71,7 @@ BLIS_INLINE void bli_ssadds_mxn( const dim_t m, const dim_t n, float*    restric
 		            *(y + ii*rs_y + jj*cs_y) );
 	}
 }
-BLIS_INLINE void bli_dsadds_mxn( const dim_t m, const dim_t n, double*   restrict x, const inc_t rs_x, const inc_t cs_x,
+BLIS_INLINE void bli_dsadds_mxn( const dim_t m, const dim_t n, const double*   restrict x, const inc_t rs_x, const inc_t cs_x,
                                                           float*    restrict y, const inc_t rs_y, const inc_t cs_y )
 {
 #ifdef BLIS_ENABLE_CR_CASES
@@ -91,12 +91,13 @@ BLIS_INLINE void bli_dsadds_mxn( const dim_t m, const dim_t n, double*   restric
 	}
 	else
 #endif
-	{
-		for ( dim_t jj = 0; jj < n; ++jj )
-		for ( dim_t ii = 0; ii < m; ++ii )
-		bli_dsadds( *(x + ii*rs_x + jj*cs_x),
-		            *(y + ii*rs_y + jj*cs_y) );
-	}
+    {
+        for (dim_t jj = 0; jj < n; ++jj)
+            for (dim_t ii = 0; ii < m; ++ii)
+            {
+                bli_dsadds(*(x + ii * rs_x + jj * cs_x), *(y + ii * rs_y + jj * cs_y) );
+            }
+    }
 }
 BLIS_INLINE void bli_csadds_mxn( const dim_t m, const dim_t n, scomplex* restrict x, const inc_t rs_x, const inc_t cs_x,
                                                           float*    restrict y, const inc_t rs_y, const inc_t cs_y )

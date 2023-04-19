@@ -414,7 +414,7 @@ static dim_t bli_diMatCopy_cn(dim_t rows,dim_t cols,const double alpha,double* a
 
  if ( rows <= 0 || cols <= 0 || a == NULL || lda < cols || ldb < cols)
  {
-  printf( " Invalid trans  setting bli_diMatcopy_cn() %ld %ld %ld %ld \n", rows, cols, lda,ldb);
+  printf( " Invalid trans  setting bli_diMatcopy_cn() %lld %lld %lld %lld \n", rows, cols, lda,ldb);
   bli_print_msg( " Invalid function parameters bli_diMatCopy_cn() .", __FILE__, __LINE__ );
   AOCL_DTL_TRACE_EXIT_ERR(AOCL_DTL_LEVEL_TRACE_2, "Invalid function parameters");
   return (0);

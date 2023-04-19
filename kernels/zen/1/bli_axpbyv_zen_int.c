@@ -32,8 +32,10 @@
 
 */
 
-#include "immintrin.h"
 #include "blis.h"
+
+#include <immintrin.h>
+#include <fmaintrin.h>
 
 /* Union DS to access AVX registers */
 /* One 256-bit AVX register holds 8 SP elements */

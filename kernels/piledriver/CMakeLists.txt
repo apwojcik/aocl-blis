@@ -1,5 +1,5 @@
-target_sources("${PROJECT_NAME}" 
+target_sources(${TARGET_NAME}
      PRIVATE 
-	 ${CMAKE_CURRENT_SOURCE_DIR}/bli_kernels_piledriver.h)
+	 bli_kernels_piledriver.h)
 
 #add_subdirectory(3)

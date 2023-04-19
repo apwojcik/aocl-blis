@@ -30,12 +30,6 @@
 # -- build system files --
 
 config.mk
-bli_config.h
-bli_addon.h
-
-# -- monolithic headers --
-
-include/*/*.h
 
 # -- makefile fragments --
 
@@ -55,11 +49,9 @@ GRTAGS
 GTAGS
 
 # Windows Build
-build/*
-bin/*
-*.dll
-*.lib
-*.pdb
-*.exe
+build*/
 
+.idea
 .vscode
+
+

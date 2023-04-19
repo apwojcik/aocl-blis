@@ -1,31 +1,36 @@
 ##Copyright (C) 2020, Advanced Micro Devices, Inc. All rights reserved.##
 
-target_sources("${PROJECT_NAME}"
+target_sources(${TARGET_NAME}
     PRIVATE
-${CMAKE_CURRENT_SOURCE_DIR}/bla_cabs1.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_gbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_hbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_hpmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_hpr.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_hpr2.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_lsame.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_rot.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_rotg.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_rotm.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_rotmg.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_sbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_spmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_spr.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_spr2.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_tbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_tbsv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_tpmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_tpsv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_xerbla.c
+        bla_cabs1.c
+        bla_gbmv.c
+        bla_hbmv.c
+        bla_hpmv.c
+        bla_hpr.c
+        bla_hpr2.c
+        bla_lsame.c
+        bla_rot.c
+        bla_rotg.c
+        bla_rotm.c
+        bla_rotmg.c
+        bla_sbmv.c
+        bla_spmv.c
+        bla_spr.c
+        bla_spr2.c
+        bla_tbmv.c
+        bla_tbsv.c
+        bla_tpmv.c
+        bla_tpsv.c
+        bla_xerbla.c
+    )
+
+target_include_directories(${TARGET_NAME}
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
     )
 
 #Add all subdirectories
-    add_subdirectory(util)
+add_subdirectory(util)
 
 
 

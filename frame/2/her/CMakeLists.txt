@@ -1,25 +1,32 @@
 ##Copyright (C) 2022, Advanced Micro Devices, Inc. All rights reserved.##
 
-target_sources("${PROJECT_NAME}"
-     PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_her_var_oapi.c
+target_sources(${TARGET_NAME}
+    PRIVATE
+        bli_her.h
+        bli_her_var_oapi.c
+        bli_her_var.h
+    )
+
+target_include_directories(${TARGET_NAME}
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
     )
 
 # Select AMD specific sources for AMD configurations.
 if(${TARGET_ARCH} STREQUAL zen OR 
-${TARGET_ARCH} STREQUAL zen2 OR 
-${TARGET_ARCH} STREQUAL zen3 OR 
-${TARGET_ARCH} STREQUAL zen4 OR
-${TARGET_ARCH} STREQUAL amdzen)
-     target_sources("${PROJECT_NAME}"
-     PRIVATE
-     ${CMAKE_CURRENT_SOURCE_DIR}/bli_her_unb_var1_amd.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/bli_her_unb_var2_amd.c
-     )
+   ${TARGET_ARCH} STREQUAL zen2 OR
+   ${TARGET_ARCH} STREQUAL zen3 OR
+   ${TARGET_ARCH} STREQUAL zen4 OR
+   ${TARGET_ARCH} STREQUAL amdzen)
+     target_sources(${TARGET_NAME}
+          PRIVATE
+               bli_her_unb_var1_amd.c
+               bli_her_unb_var2_amd.c
+          )
 else()
-     target_sources("${PROJECT_NAME}"
-     PRIVATE
-     ${CMAKE_CURRENT_SOURCE_DIR}/bli_her_unb_var1.c
-     ${CMAKE_CURRENT_SOURCE_DIR}/bli_her_unb_var2.c
-     )
+     target_sources(${TARGET_NAME}
+          PRIVATE
+               bli_her_unb_var1.c
+               bli_her_unb_var2.c
+          )
 endif()

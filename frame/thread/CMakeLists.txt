@@ -1,19 +1,39 @@
 ##Copyright (C) 2020, Advanced Micro Devices, Inc. All rights reserved.##
 
-target_sources("${PROJECT_NAME}"
+target_sources(${TARGET_NAME}
     PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_l3_decor_openmp.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_l3_decor_pthreads.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_l3_decor_single.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_l3_sup_decor_openmp.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_l3_sup_decor_pthreads.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_l3_sup_decor_single.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_pthread.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_thrcomm.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_thrcomm_openmp.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_thrcomm_pthreads.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_thrcomm_single.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_thread.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_thrinfo.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_thrinfo_sup.c
+        bli_l3_decor.h
+        bli_l3_decor_openmp.c
+        bli_l3_decor_openmp.h
+        bli_l3_decor_pthreads.c
+        bli_l3_decor_pthreads.h
+        bli_l3_decor_single.c
+        bli_l3_decor_single.h
+        bli_l3_sup_decor.h
+        bli_l3_sup_decor_openmp.c
+        bli_l3_sup_decor_openmp.h
+        bli_l3_sup_decor_pthreads.c
+        bli_l3_sup_decor_pthreads.h
+        bli_l3_sup_decor_single.c
+        bli_l3_sup_decor_single.h
+        bli_pthread.c
+        bli_pthread.h
+        bli_thrcomm.c
+        bli_thrcomm.h
+        bli_thrcomm_openmp.c
+        bli_thrcomm_openmp.h
+        bli_thrcomm_pthreads.c
+        bli_thrcomm_pthreads.h
+        bli_thrcomm_single.c
+        bli_thrcomm_single.h
+        bli_thread.c
+        bli_thread.h
+        bli_thrinfo.c
+        bli_thrinfo.h
+        bli_thrinfo_sup.c
+        bli_thrinfo_sup.h
     )
+
+target_include_directories(${TARGET_NAME}
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR})

@@ -1,11 +1,11 @@
 ##Copyright (C) 2020, Advanced Micro Devices, Inc. All rights reserved.##
 
-target_sources("${PROJECT_NAME}"
+target_sources(${TARGET_NAME}
         PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_axpy2v_ref.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_axpyf_ref.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_dotaxpyv_ref.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_dotxaxpyf_ref.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/bli_dotxf_ref.c
+    bli_axpy2v_ref.c
+    bli_axpyf_ref.c
+    bli_dotaxpyv_ref.c
+    bli_dotxaxpyf_ref.c
+    bli_dotxf_ref.c
     )
 

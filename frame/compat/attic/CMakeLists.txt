@@ -1,41 +1,44 @@
 ##Copyright (C) 2020, Advanced Micro Devices, Inc. All rights reserved.##
 
-target_sources("${PROJECT_NAME}"
+target_sources(${TARGET_NAME}
     PRIVATE
-${CMAKE_CURRENT_SOURCE_DIR}/bla_gbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_gbmv.h
-${CMAKE_CURRENT_SOURCE_DIR}/bla_hbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_hbmv.h
-${CMAKE_CURRENT_SOURCE_DIR}/bla_hpmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_hpmv.h
-${CMAKE_CURRENT_SOURCE_DIR}/bla_hpr.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_hpr.h
-${CMAKE_CURRENT_SOURCE_DIR}/bla_hpr2.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_hpr2.h
-${CMAKE_CURRENT_SOURCE_DIR}/bla_rot.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_rot.h
-${CMAKE_CURRENT_SOURCE_DIR}/bla_rotg.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_rotg.h
-${CMAKE_CURRENT_SOURCE_DIR}/bla_rotm.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_rotm.h
-${CMAKE_CURRENT_SOURCE_DIR}/bla_rotmg.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_rotmg.h
-${CMAKE_CURRENT_SOURCE_DIR}/bla_sbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_sbmv.h
-${CMAKE_CURRENT_SOURCE_DIR}/bla_spmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_spmv.h
-${CMAKE_CURRENT_SOURCE_DIR}/bla_spr.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_spr.h
-${CMAKE_CURRENT_SOURCE_DIR}/bla_spr2.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_spr2.h
-${CMAKE_CURRENT_SOURCE_DIR}/bla_tbmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_tbmv.h
-${CMAKE_CURRENT_SOURCE_DIR}/bla_tbsv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_tbsv.h
-${CMAKE_CURRENT_SOURCE_DIR}/bla_tpmv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_tpmv.h
-${CMAKE_CURRENT_SOURCE_DIR}/bla_tpsv.c
-${CMAKE_CURRENT_SOURCE_DIR}/bla_tpsv.h
+        bla_gbmv.c
+        bla_gbmv.h
+        bla_hbmv.c
+        bla_hbmv.h
+        bla_hpmv.c
+        bla_hpmv.h
+        bla_hpr.c
+        bla_hpr.h
+        bla_hpr2.c
+        bla_hpr2.h
+        bla_rot.c
+        bla_rot.h
+        bla_rotg.c
+        bla_rotg.h
+        bla_rotm.c
+        bla_rotm.h
+        bla_rotmg.c
+        bla_rotmg.h
+        bla_sbmv.c
+        bla_sbmv.h
+        bla_spmv.c
+        bla_spmv.h
+        bla_spr.c
+        bla_spr.h
+        bla_spr2.c
+        bla_spr2.h
+        bla_tbmv.c
+        bla_tbmv.h
+        bla_tbsv.c
+        bla_tbsv.h
+        bla_tpmv.c
+        bla_tpmv.h
+        bla_tpsv.c
+        bla_tpsv.h
     )
 
-
+target_include_directories(${TARGET_NAME}
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+    )
