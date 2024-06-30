@@ -44,9 +44,7 @@
   #ifndef restrict
   #define restrict
   #endif
-#elif __STDC_VERSION__ >= 199901L
-  // Language is C99 (or later); do nothing since restrict is recognized.
-#else
+#elif __STDC_VERSION__ < 199901L
   // Language is pre-C99; define restrict as nothing.
   #ifndef restrict
   #define restrict
@@ -54,13 +52,16 @@
 #endif
 
 
-// -- Define typeof() operator if using non-GNU compiler --
+// -- Define typeof() operator --
 
-#ifndef __GNUC__
-  #define typeof __typeof__
+#ifdef __cplusplus
+  #define BLIS_TYPEOF(expr) \
+    std::remove_cv_t<std::remove_reference_t<decltype(expr)>>
 #else
-  #ifndef typeof
-  #define typeof __typeof__
+  #if __STDC_VERSION__ >= 202311L
+    #define BLIS_TYPEOF(expr) typeof(expr)
+  #else
+    #define BLIS_TYPEOF(expr) __typeof__(expr)
   #endif
 #endif
 
@@ -76,7 +77,11 @@
 #if defined(__GNUC__) || defined(__clang__) || defined(__ICC) || defined(__IBMC__)
   #define BLIS_THREAD_LOCAL __thread
 #else
-  #define BLIS_THREAD_LOCAL
+  #ifdef __cplusplus
+    #define BLIS_THREAD_LOCAL thread_local
+  #else
+    #define BLIS_THREAD_LOCAL
+  #endif
 #endif
 
 

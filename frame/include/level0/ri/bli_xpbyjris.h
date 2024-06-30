@@ -44,16 +44,16 @@
 
 #define bli_cxxpbyjris( xr, xi, br, bi, yr, yi ) \
 { \
-	const __typeof__(yr) yt_r =  (xr) + (br) * (yr) - (bi) * (yi); \
-	const __typeof__(yi) yt_i = -(xi) + (bi) * (yr) + (br) * (yi); \
+	const BLIS_TYPEOF(yr) yt_r =  (xr) + (br) * (yr) - (bi) * (yi); \
+	const BLIS_TYPEOF(yi) yt_i = -(xi) + (bi) * (yr) + (br) * (yi); \
 	(yr) = yt_r; \
 	(yi) = yt_i; \
 }
 
 #define bli_crxpbyjris( xr, xi, br, bi, yr, yi ) \
 { \
-	const __typeof__(yr) yt_r =  (xr) + (br) * (yr); \
-	const __typeof__(yi) yt_i = -(xi) + (br) * (yi); \
+	const BLIS_TYPEOF(yr) yt_r =  (xr) + (br) * (yr); \
+	const BLIS_TYPEOF(yi) yt_i = -(xi) + (br) * (yi); \
 	(yr) = yt_r; \
 	(yi) = yt_i; \
 }

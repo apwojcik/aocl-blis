@@ -27,10 +27,7 @@
 #ifndef CBLAS_HH
 #define CBLAS_HH
 
-extern "C" {
 #include <blis.h>
-}
-
 #include <complex>
 
 namespace blis{

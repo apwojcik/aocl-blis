@@ -1,11 +1,12 @@
 ##Copyright (C) 2022 - 2023, Advanced Micro Devices, Inc. All rights reserved.##
 
 cmake_minimum_required(VERSION 3.15.0)
-if(WIN32)
-    project(AOCL-LibBlis LANGUAGES C CXX)
-else()
-    project(AOCL-LibBlis LANGUAGES C CXX Fortran)
+
+if(NOT WIN32)
+    set(FORTRAN_LANGUAGE FORTRAN)
 endif()
+
+project(AOCL-LibBlis LANGUAGES C CXX ${FORTRAN_LANGUAGE} VERSION 4.2 DESCRIPTION "Optimized version of BLAS for AMD EPYC and Ryzen CPUs")
 
 # Set the C standard to C99.
 set(CMAKE_C_STANDARD 99)
@@ -18,10 +19,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 # Find a python interpreter.
-find_package(Python COMPONENTS Interpreter REQUIRED)
-if(NOT Python_FOUND)
-    message(SEND_ERROR "Could not find working python interperter! Cannot continue.")
-endif()
+find_package(Python 3 REQUIRED COMPONENTS Interpreter)
+
 # Functionality that prints configuration usage.
 option(PRINT_CONFIGURE_HELP "Print CMake Configuration Usage" OFF)
 if(PRINT_CONFIGURE_HELP)
@@ -1017,10 +1016,10 @@ set(BLIS_PUBLIC_HEADERS
     # Include AMD's C++ template header files in the list of headers
     # to install.
     ${CMAKE_SOURCE_DIR}/vendor/cpp/blis.hh
-    ${CMAKE_SOURCE_DIR}/vendor/cpp/cblas.hh
 )
 if(ENABLE_CBLAS)
-    list(APPEND BLIS_PUBLIC_HEADERS ${PROJECT_BINARY_DIR}/include/${BLIS_CONFIG_FAMILY}/cblas.h)
+    list(APPEND BLIS_PUBLIC_HEADERS ${CMAKE_SOURCE_DIR}/vendor/cpp/cblas.hh
+        ${PROJECT_BINARY_DIR}/include/${BLIS_CONFIG_FAMILY}/cblas.h)
 endif()
 
 # --- Library name and local paths ---
@@ -1028,15 +1027,21 @@ endif()
 if(WIN32)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)    
     add_definitions(-D_CRT_SECURE_NO_DEPRECATE)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Oi")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP${CMake_MSVC_PARALLEL}")
-    set(INTR_GENERAL_LINK_FLAGS "${INTR_GENERAL_LINK_FLAGS} /RELEGE")
+    if(NOT CMAKE_C_COMPILER_ID STREQUAL "Clang")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Oi")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP${CMake_MSVC_PARALLEL}")
+        set(INTR_GENERAL_LINK_FLAGS "${INTR_GENERAL_LINK_FLAGS} /RELEGE")
+    endif()
     add_definitions(-DEXPMODULE)
 endif()
 
+set(BLIS_LIBRARY_OUTPUT_NAME "" CACHE STRING "Set the output name for the BLIS library")
+
 # Set up the library name.
-if(WIN32)
-    set(LIBBLIS AOCL-LibBlis-Win)
+if(NOT BLIS_LIBRARY_OUTPUT_NAME STREQUAL "")
+    set(LIBBLIS ${BLIS_LIBRARY_OUTPUT_NAME})
+elseif(WIN32)
+    set(LIBBLIS AOCL-LibBlis)
 else()
     set(LIBBLIS blis)
 endif()
@@ -1051,9 +1056,6 @@ if(NOT (THREADING_MODEL STREQUAL "no"))
 endif()
 
 if(BUILD_SHARED_LIBS)
-    if(WIN32)
-        string(APPEND LIBBLIS -dll)
-    endif()
     # Build shared library.
     add_library(libblis SHARED ${OBJECT_LIBRARIES})
     target_link_libraries(libblis PRIVATE ${LDFLAGS})
@@ -1076,10 +1078,11 @@ set_target_properties(libblis PROPERTIES PUBLIC_HEADER "${BLIS_PUBLIC_HEADERS}")
 set_target_properties(libblis PROPERTIES OUTPUT_NAME ${LIBBLIS})
 
 # Install targets.
-install(TARGETS libblis LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
-        RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
-        PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
+install(TARGETS libblis EXPORT libblis COMPONENT blis LIBRARY)
+
+target_include_directories(libblis INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
 
 # --- Primary targets ---
 add_custom_target(libs DEPENDS libblis)
@@ -1108,3 +1111,24 @@ if(ENABLE_BLAS)
     list(APPEND available_testsuites checkblas)
 endif()
 add_custom_target(check DEPENDS ${available_testsuites})
+
+install(EXPORT libblis
+        FILE blis-targets.cmake
+        DESTINATION lib/cmake/blis)
+
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/blis-config.cmake INSTALL_DESTINATION lib/cmake/blis)
+
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/blis-config-version.cmake
+    VERSION ${PROJECT_VERSION} COMPATIBILITY AnyNewerVersion)
+
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/blis-config.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/blis-config-version.cmake
+    DESTINATION lib/cmake/blis)
+
+export(EXPORT libblis
+       FILE ${CMAKE_CURRENT_BINARY_DIR}/blis-targets.cmake)

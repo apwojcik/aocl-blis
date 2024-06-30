@@ -44,8 +44,8 @@
 
 #define bli_cxaxpbyjris( ar, ai, xr, xi, br, bi, yr, yi ) \
 { \
-    const __typeof__(yr) yt_r = (ar) * (xr) + (ai) * (xi) + (br) * (yr) - (bi) * (yi); \
-    const __typeof__(yi) yt_i = (ai) * (xr) - (ar) * (xi) + (bi) * (yr) + (br) * (yi); \
+    const BLIS_TYPEOF(yr) yt_r = (ar) * (xr) + (ai) * (xi) + (br) * (yr) - (bi) * (yi); \
+    const BLIS_TYPEOF(yi) yt_i = (ai) * (xr) - (ar) * (xi) + (bi) * (yr) + (br) * (yi); \
     (yr) = yt_r; \
     (yi) = yt_i; \
 }

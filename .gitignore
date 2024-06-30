@@ -63,3 +63,6 @@ bin/*
 *.exe
 
 .vscode
+.idea/
+build.*/
+
