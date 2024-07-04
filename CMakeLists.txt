@@ -1035,13 +1035,13 @@ if(WIN32)
     add_definitions(-DEXPMODULE)
 endif()
 
-set(BLIS_LIBRARY_OUTPUT_NAME "" CACHE STRING "Set the output name for the BLIS library")
+set(BLIS_LIBRARY_NAME "" CACHE STRING "Set the output name for the BLIS library")
 
 # Set up the library name.
-if(NOT BLIS_LIBRARY_OUTPUT_NAME STREQUAL "")
-    set(LIBBLIS ${BLIS_LIBRARY_OUTPUT_NAME})
+if(NOT BLIS_LIBRARY_NAME STREQUAL "")
+    set(LIBBLIS ${BLIS_LIBRARY_NAME})
 elseif(WIN32)
-    set(LIBBLIS AOCL-LibBlis)
+    set(LIBBLIS AOCL-LibBlis-Win)
 else()
     set(LIBBLIS blis)
 endif()
@@ -1056,6 +1056,9 @@ if(NOT (THREADING_MODEL STREQUAL "no"))
 endif()
 
 if(BUILD_SHARED_LIBS)
+    if(WIN32)
+        string(APPEND LIBBLIS -dll)
+    endif()
     # Build shared library.
     add_library(libblis SHARED ${OBJECT_LIBRARIES})
     target_link_libraries(libblis PRIVATE ${LDFLAGS})
@@ -1077,15 +1080,22 @@ endif()
 set_target_properties(libblis PROPERTIES PUBLIC_HEADER "${BLIS_PUBLIC_HEADERS}")
 set_target_properties(libblis PROPERTIES OUTPUT_NAME ${LIBBLIS})
 
+include(GNUInstallDirs)
+set(EXPORT_NAME BLIS)
+
 # Install targets.
-install(TARGETS libblis EXPORT libblis COMPONENT blis LIBRARY)
+install(TARGETS libblis EXPORT ${EXPORT_NAME}-config LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 target_include_directories(libblis INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
-    $<INSTALL_INTERFACE:include>)
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
 # --- Primary targets ---
 add_custom_target(libs DEPENDS libblis)
+
+option(BLIS_ENABLE_TESTING "" ON)
+
+if(BLIS_ENABLE_TESTING)
 
 # Multiple BLIS API testing targets. Result files are generated in ${CMAKE_BINARY_DIR}/testsuite.
 add_subdirectory(testsuite EXCLUDE_FROM_ALL)
@@ -1112,23 +1122,28 @@ if(ENABLE_BLAS)
 endif()
 add_custom_target(check DEPENDS ${available_testsuites})
 
-install(EXPORT libblis
-        FILE blis-targets.cmake
-        DESTINATION lib/cmake/blis)
+endif()
+
+install(EXPORT ${EXPORT_NAME}-config
+        FILE ${EXPORT_NAME}-targets.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${EXPORT_NAME}
+        NAMESPACE ${EXPORT_NAME}::)
 
 include(CMakePackageConfigHelpers)
 
-configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/blis-config.cmake INSTALL_DESTINATION lib/cmake/blis)
+configure_package_config_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_NAME}-config.cmake
+        INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${EXPORT_NAME})
 
 write_basic_package_version_file(
-    ${CMAKE_CURRENT_BINARY_DIR}/blis-config-version.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_NAME}-config-version.cmake
     VERSION ${PROJECT_VERSION} COMPATIBILITY AnyNewerVersion)
 
 install(FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/blis-config.cmake
-    ${CMAKE_CURRENT_BINARY_DIR}/blis-config-version.cmake
-    DESTINATION lib/cmake/blis)
+    ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_NAME}-config.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_NAME}-config-version.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${EXPORT_NAME})
 
-export(EXPORT libblis
-       FILE ${CMAKE_CURRENT_BINARY_DIR}/blis-targets.cmake)
+export(EXPORT ${EXPORT_NAME}-config
+       FILE ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_NAME}-targets.cmake)
